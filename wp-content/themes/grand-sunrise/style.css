@@ -1,0 +1,156 @@
+/*
+ Theme Name: Grand Sunrise
+ Template: twentytwentyfour
+*/
+
+/* ---------- SINGLE POST LAYOUT ---------- */
+
+.grand-sunrise-single {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+/* Title spacing */
+.grand-sunrise-single .entry-title {
+    margin-top: 150px;
+    margin-bottom: 40px;
+}
+
+/* Content layout */
+.grand-sunrise-single .entry-content {
+    margin-bottom: 40px;
+}
+
+/* DiXy image */
+.dixy-image-wrapper {
+    text-align: center;
+    margin: 40px 0;
+}
+
+.dixy-image-wrapper img {
+    max-width: 300px;
+    height: auto;
+}
+
+
+/* ---------- RESPONSIVE ---------- */
+@media (max-width: 768px) {
+    .grand-sunrise-single .entry-title {
+        margin-top: 120px;
+    }
+}
+
+/* ---------- TEXT LOGO (SITE TITLE) ADJUSTMENTS ---------- */
+
+#headerimg {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+#headerimg h1 {
+    font-size: 32px; /* make it smaller */
+    font-weight: 500;
+    margin: 40px 0 10px; /* spacing above and below */
+    line-height: 1.2;
+}
+
+#headerimg h1 a {
+    text-decoration: none;
+    color: inherit;
+}
+
+/* Responsive logo scaling */
+@media (max-width: 768px) {
+    #headerimg h1 {
+        font-size: 24px;
+        margin-top: 20px;
+    }
+}
+
+
+/* -------------------------------------- */
+/* My Custom Template Styling */
+/* -------------------------------------- */
+
+.my-custom-template .my-custom-wrapper {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+/* Title spacing for custom template */
+.my-custom-template .wp-block-post-title {
+    margin-top: 150px;
+    margin-bottom: 40px;
+}
+
+/* Featured image + content spacing */
+.my-custom-template .wp-block-post-featured-image {
+    margin-bottom: 30px;
+    height: 500px;
+    overflow: hidden;
+    border-radius: 20px; /* restore rounded corners */
+}
+
+.my-custom-template .wp-block-post-featured-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    position: absolute; /* ensure proper centering */
+    border-radius: 20px; /* match parent radius */
+}
+
+.my-custom-template .wp-block-post-content {
+    margin-bottom: 40px;
+}
+
+/* Author line inline: "By akrastev" */
+.my-custom-template .my-author-line {
+    display: flex;
+    gap: 0.4em;
+    align-items: baseline;
+    margin-top: 10px;
+    margin-bottom: 60px;
+}
+
+.my-custom-template .my-author-line .author-name {
+    font-weight: 600;
+}
+
+/* Responsive tweaks */
+@media (max-width: 768px) {
+    .my-custom-template .my-custom-wrapper {
+        padding: 0 16px;
+    }
+
+    .my-custom-template .wp-block-post-title {
+        margin-top: 100px;
+    }
+}
+
+/* ----- Custom page template container width ----- */
+
+.my-custom-template {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+/* Ensure inner blocks don't break out of the container */
+.my-custom-template .wp-block-post-title,
+.my-custom-template .wp-block-post-featured-image,
+.my-custom-template .wp-block-post-content,
+.my-custom-template .my-author-line {
+    max-width: 1200px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* Prevent images from stretching beyond content width */
+.my-custom-template .wp-block-post-content img,
+.my-custom-template .wp-block-post-featured-image img {
+    max-width: 100%;
+    height: auto;
+}

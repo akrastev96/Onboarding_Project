@@ -1,0 +1,44 @@
+<!--
+Template Name: My Custom Template
+-->
+
+<!-- wp:template-part {"slug":"header"} /-->
+
+<!-- wp:group {"tagName":"main","layout":{"type":"constrained"}} -->
+<main class="my-custom-template">
+
+<!-- wp:group {"className":"my-custom-wrapper","layout":{"type":"constrained"}} -->
+<div class="my-custom-wrapper">
+
+	<!-- Title -->
+	<!-- wp:post-title {"level":1} /-->
+
+	<!-- Featured Image -->
+	<!-- wp:post-featured-image {"sizeSlug":"large"} /-->
+
+	<!-- Content -->
+	<!-- wp:post-content /-->
+    <!-- wp:html -->
+    <?php
+      do_action( 'gs_after_custom_template_content' );
+    ?>
+    <!-- /wp:html -->
+
+	<!-- Author -->
+	<!-- wp:group {"className":"my-author-line","layout":{"type":"flex","flexWrap":"nowrap","justifyContent":"left"}} -->
+	<div class="wp-block-group my-author-line">
+		<!-- wp:paragraph -->
+		<p>By</p>
+		<!-- /wp:paragraph -->
+
+		<!-- wp:post-author-name {"className":"author-name"} /-->
+	</div>
+	<!-- /wp:group -->
+
+</div>
+<!-- /wp:group -->
+
+</main>
+<!-- /wp:group -->
+
+<!-- wp:template-part {"slug":"footer"} /-->

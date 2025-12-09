@@ -1,0 +1,1 @@
+/Users/alexandr/Local Sites/hello-world/app/public/wp-content/plugins/query-monitor/wp-content/db.php
