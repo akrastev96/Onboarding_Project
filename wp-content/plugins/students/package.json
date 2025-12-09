@@ -1,0 +1,33 @@
+{
+    "name": "plugin-name",
+    "version": "1.0.0",
+    "description": "This is a short description of the DX Plugin Boilerplate.",
+    "author": "DevriX",
+    "private": true,
+    "devDependencies": {
+        "@babel/core": "^7.16.12",
+        "@babel/preset-env": "^7.16.11",
+        "babel-loader": "^8.2.3",
+        "css-loader": "^6.5.1",
+        "css-minimizer-webpack-plugin": "^3.4.1",
+        "glob": "^7.2.0",
+        "imagemin-webpack-plugin": "^2.4.2",
+        "mini-css-extract-plugin": "^2.5.3",
+        "sass": "^1.49.0",
+        "sass-loader": "^12.4.0",
+        "webpack": "^5.68.0",
+        "webpack-cli": "^4.9.2",
+        "webpack-remove-empty-scripts": "^0.7.3"
+    },
+    "scripts": {
+        "watch": "webpack --mode production --watch --env bundlejs=false",
+        "prod": "webpack --mode production --env bundlejs=false",
+        "prod-bundle": "webpack --mode production --env bundlejs=true",
+        "dev": "webpack --mode development --watch --env bundlejs=false"
+    },
+    "babel": {
+        "presets": [
+            "@babel/preset-env"
+        ]
+    }
+}
