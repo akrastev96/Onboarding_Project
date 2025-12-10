@@ -154,3 +154,194 @@
     max-width: 100%;
     height: auto;
 }
+
+
+/* === Students Archive Styles === */
+
+/* ARCHIVE CONTAINER WIDTH */
+.students-archive {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+/* CATEGORY NAV */
+.student-category-nav {
+    display: flex;
+    justify-content: center;
+    gap: 30px;
+    margin: 100px 0;
+    font-size: 20px;
+}
+
+.student-category-nav a {
+    text-decoration: none;
+    color: #000;
+    font-weight: 400;
+}
+
+.student-category-nav a:hover {
+    opacity: 0.5;
+}
+
+
+/* GRID */
+.students-grid {
+    display: grid;
+    width: 900px;
+    margin: 0 auto;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 50px;
+    margin-bottom: 50px;
+}
+
+
+/* STUDENT CARD */
+.student-card {
+    background: #f4efec;
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);}
+
+/* Image */
+.student-thumb img {
+    width: 100%;
+    height: 350px;
+    object-fit: cover;
+    position: top-center;
+}
+
+/* Card content */
+.student-info {
+    padding: 20px;
+}
+
+/* Categories inside card */
+.student-categories {
+    font-size: 14px;
+    color: #555;
+    margin-bottom: 8px;
+}
+
+/* Name */
+.student-name {
+    font-size: 22px;
+    font-weight: 600;
+    margin-bottom: 10px;
+}
+
+/* Excerpt */
+.student-excerpt {
+    font-size: 16px;
+    line-height: 1.4;
+    opacity: 0.9;
+}
+
+
+/* PAGINATION */
+.student-pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 60px 0;
+    font-size: 18px;
+}
+
+.student-pagination a {
+    text-decoration: none;
+    color: #000;
+}
+
+.pagination-numbers {
+    display: flex;
+    gap: 12px;
+}
+
+@media (max-width: 768px) {
+    .student-category-nav {
+        flex-wrap: wrap;
+        gap: 16px;
+        font-size: 16px;
+    }
+
+    .students-grid {
+        gap: 30px;
+    }
+
+    .student-thumb img {
+        height: 250px;
+    }
+
+    .student-pagination {
+        flex-direction: column;
+        gap: 20px;
+        text-align: center;
+    }
+}
+
+
+/* === Single Student Page Layout === */
+
+.single-student-wrapper {
+    max-width: 1200px;
+    margin: 120px auto;
+    padding: 0 20px;
+
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 60px;
+    align-items: start;
+}
+
+/* IMAGE */
+.single-student-image {
+    width: 100%;
+    height: 100%;
+    border-radius: 30px;
+    overflow: hidden;
+}
+
+.single-student-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* RIGHT SIDE CONTENT */
+.single-student-content {
+    margin-top: 20px;
+}
+
+/* Categories */
+.single-student-categories {
+    font-size: 18px;
+    color: #555;
+    margin-bottom: 20px;
+}
+
+/* Name */
+.single-student-name {
+    font-size: 32px;
+    font-weight: 600;
+    margin-bottom: 20px;
+}
+
+/* Description / Content */
+.single-student-description {
+    font-size: 18px;
+    line-height: 1.6;
+    color: #222;
+}
+
+/* RESPONSIVE */
+@media (max-width: 900px) {
+    .single-student-wrapper {
+        grid-template-columns: 1fr;
+        text-align: center;
+    }
+
+    .single-student-image {
+        max-width: 500px;
+        margin: 0 auto;
+    }
+}

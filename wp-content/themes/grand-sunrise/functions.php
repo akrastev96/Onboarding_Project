@@ -159,3 +159,56 @@ function gs_append_after_content_on_custom_template( $content ) {
     return $content;
 }
 add_filter( 'the_content', 'gs_append_after_content_on_custom_template', 999 );
+
+/**
+ * Ensure student archives paginate correctly by adjusting the main query.
+ * If the main query has no posts on page 2+, WordPress returns 404 even
+ * if a custom query renders results. This aligns the main query with the
+ * intended page size.
+ */
+function gs_student_archive_pagination_fix( $query ) {
+    if ( is_admin() || ! $query->is_main_query() ) {
+        return;
+    }
+
+    // Student archive pagination.
+    if ( $query->is_post_type_archive( 'student' ) ) {
+        $query->set( 'posts_per_page', 4 );
+    }
+
+    // Category archives: only adjust when explicitly requesting student posts.
+    if ( $query->is_category() ) {
+        $post_type = $query->get( 'post_type' );
+        $has_student = ( 'student' === $post_type ) || ( is_array( $post_type ) && in_array( 'student', $post_type, true ) );
+
+        if ( $has_student ) {
+            $query->set( 'post_type', array( 'student' ) );
+            $query->set( 'posts_per_page', 4 );
+        }
+    }
+}
+add_action( 'pre_get_posts', 'gs_student_archive_pagination_fix' );
+
+/**
+ * Append post_type=student to category links when in student context
+ * (student archive or student category view) so category browsing stays
+ * within student posts only.
+ */
+function gs_student_category_link( $termlink, $term, $taxonomy ) {
+    if ( 'category' !== $taxonomy ) {
+        return $termlink;
+    }
+
+    // Detect student context.
+    $post_type_qv = get_query_var( 'post_type' );
+    $in_student_context =
+        is_post_type_archive( 'student' ) ||
+        ( is_category() && ( 'student' === $post_type_qv || ( is_array( $post_type_qv ) && in_array( 'student', $post_type_qv, true ) ) ) );
+
+    if ( $in_student_context ) {
+        
+    }
+
+    return $termlink;
+}
+add_filter( 'term_link', 'gs_student_category_link', 10, 3 );

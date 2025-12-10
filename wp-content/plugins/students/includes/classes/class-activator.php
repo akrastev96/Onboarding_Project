@@ -27,6 +27,12 @@ class Activator {
 	 * @since    1.0.0
 	 */
 	public static function activate() {
-		// Some code.
+		// Register the CPT before flushing so rules exist.
+		if ( function_exists( '\sasho_register_student_cpt' ) ) {
+			\sasho_register_student_cpt();
+		}
+
+		// Flush rewrite rules to register /student/ and pagination.
+		flush_rewrite_rules();
 	}
 }

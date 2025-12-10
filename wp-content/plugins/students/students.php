@@ -77,6 +77,51 @@ require_once STUDENTS_DIR . 'includes/classes/class-students.php';
 require_once STUDENTS_DIR . 'includes/functions.php';
 
 /**
+ * Register the "student" Custom Post Type.
+ */
+function sasho_register_student_cpt() {
+
+    $labels = array(
+        'name'               => __( 'Students', 'students' ),
+        'singular_name'      => __( 'Student', 'students' ),
+        'add_new'            => __( 'Add New Student', 'students' ),
+        'add_new_item'       => __( 'Add New Student', 'students' ),
+        'edit_item'          => __( 'Edit Student', 'students' ),
+        'new_item'           => __( 'New Student', 'students' ),
+        'view_item'          => __( 'View Student', 'students' ),
+        'search_items'       => __( 'Search Students', 'students' ),
+        'not_found'          => __( 'No Students found', 'students' ),
+        'not_found_in_trash' => __( 'No Students found in Trash', 'students' ),
+    );
+
+    $args = array(
+        'label'               => __( 'Students', 'students' ),
+        'labels'              => $labels,
+        'public'              => true,
+		'publicly_queryable' => true,
+        // Keep archive + slug aligned so pagination works at /student/page/2.
+        'has_archive'         => 'student',
+        'rewrite'             => array(
+            'slug'       => 'student',
+            'with_front' => false,
+        ),
+        'query_var'           => true,
+        'menu_icon'           => 'dashicons-welcome-learn-more',
+        'supports'            => array(
+            'title',
+            'editor',
+            'excerpt',
+            'thumbnail'
+        ),
+        'taxonomies'          => array( 'category' ),
+        'show_in_rest'        => true,
+    );
+
+    register_post_type( 'student', $args );
+}
+add_action( 'init', 'sasho_register_student_cpt' );
+
+/**
  * Begins execution of the plugin.
  *
  * Since everything within the plugin is registered via hooks,
