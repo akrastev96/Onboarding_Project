@@ -3,6 +3,149 @@
  * Functions for the Grand Sunrise child theme
  */
 
+/**
+ * Student meta field definitions (for meta boxes, display, and settings).
+ */
+function student_meta_fields_definitions() {
+    return array(
+        'country'   => array(
+            'meta_key' => '_student_country',
+            'label'    => __( 'Country', 'grand-sunrise' ),
+        ),
+        'city'      => array(
+            'meta_key' => '_student_city',
+            'label'    => __( 'City', 'grand-sunrise' ),
+        ),
+        'address'   => array(
+            'meta_key' => '_student_address',
+            'label'    => __( 'Address', 'grand-sunrise' ),
+        ),
+        'birthdate' => array(
+            'meta_key' => '_student_birthdate',
+            'label'    => __( 'Birth Date', 'grand-sunrise' ),
+        ),
+        'class'     => array(
+            'meta_key' => '_student_class',
+            'label'    => __( 'Class / Grade', 'grand-sunrise' ),
+        ),
+        'active'    => array(
+            'meta_key' => '_student_active',
+            'label'    => __( 'Active Student', 'grand-sunrise' ),
+        ),
+    );
+}
+
+/**
+ * Helper to check if a student meta field is set to be visible.
+ * Defaults to visible when setting is absent.
+ */
+function student_meta_is_visible( $field_key ) {
+    $settings = get_option( 'student_meta_visibility', array() );
+    // Default to visible if not set.
+    if ( ! is_array( $settings ) || ! array_key_exists( $field_key, $settings ) ) {
+        return true;
+    }
+    return (bool) $settings[ $field_key ];
+}
+
+/**
+ * Register top-level Students settings page.
+ */
+function student_register_settings_page() {
+    // Create top-level admin menu.
+    add_menu_page(
+        __( 'Students Settings', 'grand-sunrise' ), // Page title
+        __( 'Students', 'grand-sunrise' ),          // Menu title
+        'manage_options',                           // Capability
+        'student-settings',                         // Menu slug
+        'student_render_settings_page',             // Callback function
+        'dashicons-id',                             // Icon
+        26                                          // Position
+    );
+}
+add_action( 'admin_menu', 'student_register_settings_page' );
+
+/**
+ * Register settings/fields (visibility toggles).
+ */
+function student_register_settings() {
+    register_setting(
+        'student_settings_group',
+        'student_meta_visibility',
+        'student_sanitize_visibility_settings'
+    );
+
+    add_settings_section(
+        'student_settings_section',
+        __( 'Student Meta Visibility', 'grand-sunrise' ),
+        function() {
+            echo '<p>' . esc_html__( 'Choose which student fields appear on the single student page.', 'grand-sunrise' ) . '</p>';
+        },
+        'student-settings'
+    );
+
+    $fields = student_meta_fields_definitions();
+    foreach ( $fields as $key => $field ) {
+        add_settings_field(
+            'student_meta_visibility_' . $key,
+            esc_html( $field['label'] ),
+            'student_render_visibility_checkbox',
+            'student-settings',
+            'student_settings_section',
+            array(
+                'field_key' => $key,
+                'label'     => $field['label'],
+            )
+        );
+    }
+}
+add_action( 'admin_init', 'student_register_settings' );
+
+/**
+ * Sanitize visibility settings.
+ */
+function student_sanitize_visibility_settings( $input ) {
+    $fields     = student_meta_fields_definitions();
+    $sanitized  = array();
+    foreach ( $fields as $key => $field ) {
+        $sanitized[ $key ] = ( isset( $input[ $key ] ) && '1' === (string) $input[ $key ] ) ? 1 : 0;
+    }
+    return $sanitized;
+}
+
+/**
+ * Render a single visibility checkbox.
+ */
+function student_render_visibility_checkbox( $args ) {
+    $settings  = get_option( 'student_meta_visibility', array() );
+    $field_key = $args['field_key'];
+    $checked   = isset( $settings[ $field_key ] ) ? (bool) $settings[ $field_key ] : true; // default visible
+    ?>
+    <label>
+        <input type="checkbox" name="student_meta_visibility[<?php echo esc_attr( $field_key ); ?>]" value="1" <?php checked( $checked ); ?> />
+        <?php esc_html_e( 'Show on single student page', 'grand-sunrise' ); ?>
+    </label>
+    <?php
+}
+
+/**
+ * Render settings page markup.
+ */
+function student_render_settings_page() {
+    ?>
+    <div class="wrap">
+        <h1><?php esc_html_e( 'Students Settings', 'grand-sunrise' ); ?></h1>
+        <form method="post" action="options.php">
+            <?php
+            settings_fields( 'student_settings_group' );
+            do_settings_sections( 'student-settings' );
+            submit_button();
+            ?>
+        </form>
+    </div>
+    <?php
+}
+
 function grand_sunrise_enqueue_styles() {
     wp_enqueue_style(
         'grand-sunrise-style',
@@ -212,3 +355,114 @@ function gs_student_category_link( $termlink, $term, $taxonomy ) {
     return $termlink;
 }
 add_filter( 'term_link', 'gs_student_category_link', 10, 3 );
+
+
+/**
+ * Add meta boxes to Student CPT
+ */
+function student_add_meta_boxes() {
+    add_meta_box(
+        'student_info_metabox',
+        __( 'Student Information', 'textdomain' ),
+        'student_info_metabox_callback',
+        'student',
+        'normal',
+        'default'
+    );
+}
+add_action( 'add_meta_boxes', 'student_add_meta_boxes' );
+
+/**
+ * Metabox output
+ */
+function student_info_metabox_callback( $post ) {
+
+    wp_nonce_field( 'student_info_nonce_action', 'student_info_nonce' );
+
+    $country  = get_post_meta( $post->ID, '_student_country', true );
+    $city     = get_post_meta( $post->ID, '_student_city', true );
+    $address  = get_post_meta( $post->ID, '_student_address', true );
+    $birth    = get_post_meta( $post->ID, '_student_birthdate', true );
+    $class    = get_post_meta( $post->ID, '_student_class', true );
+    $active   = get_post_meta( $post->ID, '_student_active', true );
+    ?>
+
+    <p>
+        <label><strong>Country:</strong></label><br>
+        <input type="text" name="student_country" value="<?php echo esc_attr( $country ); ?>" class="widefat">
+    </p>
+
+    <p>
+        <label><strong>City:</strong></label><br>
+        <input type="text" name="student_city" value="<?php echo esc_attr( $city ); ?>" class="widefat">
+    </p>
+
+    <p>
+        <label><strong>Address:</strong></label><br>
+        <input type="text" name="student_address" value="<?php echo esc_attr( $address ); ?>" class="widefat">
+    </p>
+
+    <p>
+        <label><strong>Birth Date:</strong></label><br>
+        <input type="date" name="student_birthdate" value="<?php echo esc_attr( $birth ); ?>">
+    </p>
+
+    <p>
+        <label><strong>Class / Grade:</strong></label><br>
+        <input type="text" name="student_class" value="<?php echo esc_attr( $class ); ?>" class="widefat">
+    </p>
+
+    <p>
+        <label>
+            <input type="checkbox" name="student_active" value="1" <?php checked( $active, 1 ); ?>>
+            Active Student
+        </label>
+    </p>
+
+    <?php
+}
+
+/**
+ * Save Student Meta
+ */
+function student_save_meta( $post_id ) {
+
+    // Verify nonce
+    if ( ! isset( $_POST['student_info_nonce'] ) || 
+         ! wp_verify_nonce( $_POST['student_info_nonce'], 'student_info_nonce_action' ) ) {
+        return;
+    }
+
+    // Prevent autosave overwrite
+    if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
+        return;
+    }
+
+    // Check permissions
+    if ( isset( $_POST['post_type'] ) && 'student' === $_POST['post_type'] ) {
+        if ( ! current_user_can( 'edit_post', $post_id ) ) {
+            return;
+        }
+    }
+
+    // Save fields
+    $fields = [
+        'student_country'   => '_student_country',
+        'student_city'      => '_student_city',
+        'student_address'   => '_student_address',
+        'student_birthdate' => '_student_birthdate',
+        'student_class'     => '_student_class',
+    ];
+
+    foreach ( $fields as $input => $meta_key ) {
+        if ( isset( $_POST[ $input ] ) ) {
+            $value = sanitize_text_field( wp_unslash( $_POST[ $input ] ) );
+            update_post_meta( $post_id, $meta_key, $value );
+        }
+    }
+
+    // Checkbox — save 1 or 0
+    $active = isset( $_POST['student_active'] ) ? 1 : 0;
+    update_post_meta( $post_id, '_student_active', $active );
+}
+add_action( 'save_post', 'student_save_meta' );

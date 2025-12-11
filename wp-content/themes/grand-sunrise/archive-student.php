@@ -27,6 +27,12 @@ get_header(); ?>
         'post_type'      => 'student',
         'posts_per_page' => 4,
         'paged'          => $paged,
+        'meta_query'     => array(
+            array(
+                'key'   => '_student_active',
+                'value' => 1,
+            ),
+        ),
     );
 
     $students_query = new WP_Query( $args );
