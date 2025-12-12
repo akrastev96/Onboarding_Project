@@ -8,9 +8,9 @@
 get_header();
 
 if ( have_posts() ) :
-    while ( have_posts() ) :
-        the_post();
-?>
+	while ( have_posts() ) :
+		the_post();
+		?>
 
 <div class="single-student-wrapper">
 
@@ -38,13 +38,13 @@ if ( have_posts() ) :
                 }
                 echo implode( ', ', $links );
                 ?>
-            </div>
+				</div>
 
             <h1 class="single-student-name"><?php the_title(); ?></h1>
 
             <div class="single-student-description">
-                <?php the_content(); ?>
-            </div>
+				<?php the_content(); ?>
+			</div>
 
             <?php
             // Fetch all meta at once, then escape on output.
@@ -98,7 +98,7 @@ if ( have_posts() ) :
                 <?php endif; ?>
             </div>
 
-        </div>
+		</div>
 
     </div>
 

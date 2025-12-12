@@ -49,6 +49,390 @@ function student_meta_is_visible( $field_key ) {
 }
 
 /**
+ * Register Dictionary menu page.
+ */
+function dictionary_register_menu_page() {
+    add_menu_page(
+        __( 'Dictionary', 'grand-sunrise' ),
+        __( 'Dictionary', 'grand-sunrise' ),
+        'read',
+        'dictionary',
+        'dictionary_render_page',
+        'dashicons-book-alt',
+        27 // Position right below Students (26)
+    );
+}
+add_action( 'admin_menu', 'dictionary_register_menu_page' );
+
+/**
+ * Render Dictionary page.
+ */
+function dictionary_render_page() {
+    ?>
+    <div class="wrap">
+        <h1><?php esc_html_e( 'Oxford Dictionary', 'grand-sunrise' ); ?></h1>
+        <p><?php esc_html_e( 'Search for word definitions using Oxford Learner\'s Dictionary.', 'grand-sunrise' ); ?></p>
+        
+        <div id="dictionary-search-container">
+            <form id="dictionary-search-form">
+                <p>
+                    <label for="dictionary-word-input">
+                        <strong><?php esc_html_e( 'Search for a word:', 'grand-sunrise' ); ?></strong>
+                    </label>
+                </p>
+                <p>
+                    <input 
+                        type="text" 
+                        id="dictionary-word-input" 
+                        name="word" 
+                        class="regular-text" 
+                        placeholder="<?php esc_attr_e( 'e.g., fidget spinner', 'grand-sunrise' ); ?>"
+                        required
+                    />
+                    <button type="submit" class="button button-primary">
+                        <?php esc_html_e( 'Search', 'grand-sunrise' ); ?>
+                    </button>
+                </p>
+            </form>
+            
+            <?php
+            $last_transient = get_option( 'dictionary_last_transient' );
+            $cached_result  = $last_transient ? get_transient( $last_transient ) : false;
+            ?>
+            <div id="dictionary-results" style="margin-top: 20px;">
+                <?php
+                if ( $cached_result && isset( $cached_result['html'] ) ) {
+                    echo $cached_result['html']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+                }
+                ?>
+            </div>
+            <div id="dictionary-loading" style="display: none; margin-top: 20px;">
+                <span class="spinner is-active" style="float: none;"></span>
+                <?php esc_html_e( 'Searching...', 'grand-sunrise' ); ?>
+            </div>
+        </div>
+        <hr />
+        <form method="post" action="options.php">
+            <?php
+            settings_fields( 'dictionary_settings_group' );
+            do_settings_sections( 'dictionary-settings' );
+            submit_button( __( 'Save Cache Settings', 'grand-sunrise' ) );
+            ?>
+        </form>
+    </div>
+    <?php
+}
+
+/**
+ * Register dictionary cache duration setting.
+ */
+function dictionary_register_settings() {
+
+    register_setting(
+        'dictionary_settings_group',
+        'dictionary_cache_duration',
+        array(
+            'type'              => 'integer',
+            'sanitize_callback' => 'absint',
+            'default'           => HOUR_IN_SECONDS,
+        )
+    );
+
+    add_settings_section(
+        'dictionary_settings_section',
+        __( 'Dictionary Cache Settings', 'grand-sunrise' ),
+        '__return_false',
+        'dictionary-settings'
+    );
+
+    add_settings_field(
+        'dictionary_cache_duration',
+        __( 'Cache duration', 'grand-sunrise' ),
+        'dictionary_render_cache_duration_field',
+        'dictionary-settings',
+        'dictionary_settings_section'
+    );
+}
+add_action( 'admin_init', 'dictionary_register_settings' );
+
+/**
+ * Render cache duration select field.
+ */
+function dictionary_render_cache_duration_field() {
+    $value = get_option( 'dictionary_cache_duration', HOUR_IN_SECONDS );
+    ?>
+    <select name="dictionary_cache_duration">
+        <option value="<?php echo esc_attr( 10 ); ?>" <?php selected( $value, 10 ); ?>>
+            <?php esc_html_e( '10 seconds (testing)', 'grand-sunrise' ); ?>
+        </option>
+        <option value="<?php echo esc_attr( HOUR_IN_SECONDS ); ?>" <?php selected( $value, HOUR_IN_SECONDS ); ?>>
+            <?php esc_html_e( '1 hour', 'grand-sunrise' ); ?>
+        </option>
+    </select>
+    <?php
+}
+
+/**
+ * Enqueue dictionary admin scripts.
+ */
+function dictionary_enqueue_admin_scripts( $hook ) {
+    // Only load on dictionary page.
+    if ( 'toplevel_page_dictionary' !== $hook ) {
+        return;
+    }
+
+    wp_enqueue_script(
+        'dictionary-admin',
+        get_stylesheet_directory_uri() . '/js/dictionary-admin.js',
+        array( 'jquery' ),
+        '1.0.0',
+        true
+    );
+
+    wp_localize_script(
+        'dictionary-admin',
+        'dictionaryAdmin',
+        array(
+            'ajaxUrl' => admin_url( 'admin-ajax.php' ),
+            'nonce'   => wp_create_nonce( 'dictionary_search_nonce' ),
+        )
+    );
+}
+add_action( 'admin_enqueue_scripts', 'dictionary_enqueue_admin_scripts' );
+
+/**
+ * AJAX handler to fetch Oxford dictionary content.
+ */
+function dictionary_ajax_search() {
+    // Verify nonce.
+    if ( ! isset( $_POST['nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['nonce'] ) ), 'dictionary_search_nonce' ) ) {
+        wp_send_json_error( array( 'message' => __( 'Security check failed.', 'grand-sunrise' ) ) );
+    }
+
+    // Check permissions.
+    if ( ! current_user_can( 'read' ) ) {
+        wp_send_json_error( array( 'message' => __( 'Insufficient permissions.', 'grand-sunrise' ) ) );
+    }
+
+    // Get and sanitize search term.
+    $word = isset( $_POST['word'] ) ? sanitize_text_field( wp_unslash( $_POST['word'] ) ) : '';
+    $transient_key = 'dictionary_result_' . md5( strtolower( $word ) );
+    $cache_duration = get_option( 'dictionary_cache_duration', HOUR_IN_SECONDS );
+
+    // Return cached result if it exists.
+    $cached = get_transient( $transient_key );
+    if ( false !== $cached ) {
+        // Remember this as the last searched result.
+        update_option( 'dictionary_last_transient', $transient_key );
+        wp_send_json_success( $cached );
+    }
+    if ( empty( $word ) ) {
+        wp_send_json_error( array( 'message' => __( 'Please enter a word to search.', 'grand-sunrise' ) ) );
+    }
+
+    // Build Oxford dictionary URL.
+    $word_slug = strtolower( trim( $word ) );
+    $word_slug = preg_replace( '/[^a-z0-9-]/', '-', $word_slug );
+    $word_slug = preg_replace( '/-+/', '-', $word_slug );
+    $word_slug = trim( $word_slug, '-' );
+    
+    $oxford_url = 'https://www.oxfordlearnersdictionaries.com/definition/english/' . urlencode( $word_slug );
+
+    // Fetch content from Oxford.
+    $response = wp_remote_get(
+        $oxford_url,
+        array(
+            'timeout'     => 15,
+            'user-agent'  => 'Mozilla/5.0 (compatible; WordPress Dictionary Plugin)',
+            'sslverify'   => true,
+        )
+    );
+
+    if ( is_wp_error( $response ) ) {
+        wp_send_json_error( array( 'message' => __( 'Failed to fetch dictionary content. Please try again.', 'grand-sunrise' ) ) );
+    }
+
+    $body = wp_remote_retrieve_body( $response );
+    $status_code = wp_remote_retrieve_response_code( $response );
+
+    if ( 200 !== $status_code ) {
+        wp_send_json_error( array( 'message' => sprintf( __( 'Word not found. Status code: %d', 'grand-sunrise' ), $status_code ) ) );
+    }
+
+    // Parse HTML to extract definition content.
+    if ( ! class_exists( 'DOMDocument' ) ) {
+        wp_send_json_error( array( 'message' => __( 'DOMDocument not available.', 'grand-sunrise' ) ) );
+    }
+
+    libxml_use_internal_errors( true );
+    $dom = new DOMDocument();
+    @$dom->loadHTML( '<?xml encoding="UTF-8">' . $body );
+    libxml_clear_errors();
+
+    $xpath = new DOMXPath( $dom );
+
+    // Extract word heading.
+    $word_heading = '';
+    $heading_nodes = $xpath->query( '//h1[contains(@class, "headword")] | //span[contains(@class, "headword")] | //h1[@class="headword"]' );
+    if ( $heading_nodes->length > 0 ) {
+        $word_heading = trim( $heading_nodes->item( 0 )->textContent );
+    }
+    if ( empty( $word_heading ) ) {
+        $word_heading = $word;
+    }
+
+    // Extract part of speech.
+    $part_of_speech = '';
+    $pos_nodes = $xpath->query( '//span[contains(@class, "pos")] | //span[@class="pos"] | //div[contains(@class, "pos")]' );
+    if ( $pos_nodes->length > 0 ) {
+        $part_of_speech = trim( $pos_nodes->item( 0 )->textContent );
+    }
+
+    // Extract phonetic transcription (IPA only, ignore navigation / UI text).
+    $phonetic = '';
+    $phon_nodes = $xpath->query( '//span[contains(concat(" ", normalize-space(@class), " "), " phon ")]' );
+
+    if ( $phon_nodes->length > 0 ) {
+        foreach ( $phon_nodes as $node ) {
+            $text = trim( $node->textContent );
+
+            // Real IPA usually contains slashes or IPA symbols.
+            if ( preg_match( '/^\/.*\/$/u', $text ) || preg_match( '/[ˈˌəɪʊɔɛæ]/u', $text ) ) {
+                $phonetic = esc_html( $text );
+                break;
+            }
+        }
+    }
+
+    // Extract main definition content - exclude navigation areas.
+    $definitions = array();
+    
+    // First, try to find the main entry content area and exclude navigation.
+    $main_entry = $xpath->query( '//div[contains(@class, "entry")] | //div[@id="entryContent"] | //div[contains(@class, "webtop")]' );
+    
+    // Try to find definition sections within the main content, excluding nav areas.
+    $def_nodes = $xpath->query( '//div[contains(@class, "def")][not(ancestor::nav)][not(ancestor::header)][not(ancestor::*[contains(@class, "nav")])] | //span[contains(@class, "def")][not(ancestor::nav)][not(ancestor::header)][not(ancestor::*[contains(@class, "nav")])]' );
+    
+    if ( $def_nodes->length > 0 ) {
+        foreach ( $def_nodes as $node ) {
+            $text = trim( $node->textContent );
+            
+            // Filter out navigation-related content.
+            $is_navigation = false;
+            $nav_keywords = array( 'toggle navigation', 'dictionaries home', 'grammar home', 'word lists home', 'resources home', 'text checker', 'academic collocations', 'german-english', 'american english', 'practical english usage', 'learn & practise' );
+            $text_lower = strtolower( $text );
+            foreach ( $nav_keywords as $keyword ) {
+                if ( strpos( $text_lower, $keyword ) !== false ) {
+                    $is_navigation = true;
+                    break;
+                }
+            }
+            
+            // Only include if it's a real definition (long enough and not navigation).
+            if ( ! $is_navigation && ! empty( $text ) && strlen( $text ) > 30 ) {
+                // Additional check: definitions usually contain complete sentences.
+                if ( preg_match( '/[.!?]/', $text ) || strlen( $text ) > 50 ) {
+                    $definitions[] = esc_html( $text );
+                }
+            }
+        }
+    }
+    
+    // If no good definitions found, try more specific selectors.
+    if ( empty( $definitions ) ) {
+        $def_nodes = $xpath->query( '//span[@class="def"] | //div[@class="def"]' );
+        if ( $def_nodes->length > 0 ) {
+            foreach ( $def_nodes as $node ) {
+                $text = trim( $node->textContent );
+                // Filter navigation content.
+                $text_lower = strtolower( $text );
+                $is_nav = false;
+                foreach ( array( 'navigation', 'dictionaries', 'grammar', 'word lists', 'resources' ) as $nav_term ) {
+                    if ( strpos( $text_lower, $nav_term ) !== false && strlen( $text ) < 100 ) {
+                        $is_nav = true;
+                        break;
+                    }
+                }
+                if ( ! $is_nav && ! empty( $text ) && strlen( $text ) > 30 ) {
+                    $definitions[] = esc_html( $text );
+                }
+            }
+        }
+    }
+
+    // If no definitions found, try to get the main content area.
+    if ( empty( $definitions ) ) {
+        $main_content = $xpath->query( '//main | //div[@id="main-content"] | //div[contains(@class, "entry")]' );
+        if ( $main_content->length > 0 ) {
+            $content_html = $dom->saveHTML( $main_content->item( 0 ) );
+            // Strip scripts and styles for security.
+            $content_html = preg_replace( '/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/mi', '', $content_html );
+            $content_html = preg_replace( '/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/mi', '', $content_html );
+            $definitions[] = wp_kses_post( $content_html );
+        }
+    }
+
+    // Build HTML output.
+    $html = '<div class="dictionary-result" style="max-width: 800px;">';
+    
+    // Word heading with part of speech and pronunciation.
+    $html .= '<div style="margin-bottom: 15px;">';
+    $html .= '<h2 style="font-size: 28px; font-weight: bold; color: #1a1a1a; margin: 0 0 5px 0;">' . esc_html( $word_heading ) . '</h2>';
+
+    if ( ! empty( $part_of_speech ) ) {
+        $html .= '<span style="font-style: italic; color: #666; font-size: 16px; margin-right: 10px;">' . esc_html( $part_of_speech ) . '</span>';
+    }
+
+    if ( ! empty( $phonetic ) ) {
+        $html .= '<div style="margin-top: 6px; font-size: 16px; color: #333;">';
+        $html .= '<span>' . esc_html( $phonetic ) . '</span>';
+        $html .= '</div>';
+    }
+
+    $html .= '</div>';
+
+    // Definitions.
+    if ( ! empty( $definitions ) ) {
+        $html .= '<div class="dictionary-definitions" style="margin-top: 20px;">';
+        foreach ( $definitions as $index => $def ) {
+            $html .= '<div class="dictionary-definition-item" style="margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #eee;">';
+            $html .= '<p style="margin: 0; line-height: 1.6;">' . $def . '</p>';
+            $html .= '</div>';
+        }
+        $html .= '</div>';
+    }
+
+    // Link to full definition.
+    $html .= '<p style="margin-top: 20px;">';
+    $html .= '<a href="' . esc_url( $oxford_url ) . '" target="_blank" style="color: #0073aa;">';
+    $html .= esc_html__( 'View full definition on Oxford Learner\'s Dictionary', 'grand-sunrise' );
+    $html .= '</a>';
+    $html .= '</p>';
+
+    $html .= '</div>';
+
+    // If no content found, show fallback.
+    if ( empty( $definitions ) && empty( $phonetic ) ) {
+        $html = '<div class="dictionary-result">';
+        $html .= '<p>' . sprintf( __( 'Word found! <a href="%s" target="_blank">View definition on Oxford Learner\'s Dictionary</a>', 'grand-sunrise' ), esc_url( $oxford_url ) ) . '</p>';
+        $html .= '</div>';
+    }
+
+    $result = array(
+        'html'       => $html,
+        'word'       => esc_html( $word ),
+        'oxford_url' => esc_url( $oxford_url ),
+    );
+
+    // Cache result.
+    set_transient( $transient_key, $result, $cache_duration );
+    update_option( 'dictionary_last_transient', $transient_key );
+
+    wp_send_json_success( $result );
+}
+add_action( 'wp_ajax_dictionary_search', 'dictionary_ajax_search' );
+
+/**
  * Register top-level Students settings page.
  */
 function student_register_settings_page() {
@@ -61,6 +445,16 @@ function student_register_settings_page() {
         'student_render_settings_page',             // Callback function
         'dashicons-id',                             // Icon
         26                                          // Position
+    );
+
+    // AJAX-powered settings submenu.
+    add_submenu_page(
+        'student-settings',
+        __( 'Students AJAX Settings', 'grand-sunrise' ),
+        __( 'AJAX Settings', 'grand-sunrise' ),
+        'manage_options',
+        'student-ajax-settings',
+        'student_render_ajax_settings_page'
     );
 }
 add_action( 'admin_menu', 'student_register_settings_page' );
@@ -142,6 +536,93 @@ function student_render_settings_page() {
             submit_button();
             ?>
         </form>
+    </div>
+    <?php
+}
+
+/**
+ * Enqueue assets for AJAX settings page.
+ */
+function student_ajax_settings_assets( $hook ) {
+    // Only load on our AJAX settings page.
+    $is_ajax_settings = ( isset( $_GET['page'] ) && 'student-ajax-settings' === $_GET['page'] ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+    if ( ! $is_ajax_settings ) {
+        return;
+    }
+
+    wp_enqueue_script(
+        'student-ajax-settings',
+        get_stylesheet_directory_uri() . '/js/student-ajax-settings.js',
+        array( 'jquery' ),
+        '1.0.0',
+        true
+    );
+
+    wp_localize_script(
+        'student-ajax-settings',
+        'studentAjaxSettings',
+        array(
+            'ajaxUrl' => admin_url( 'admin-ajax.php' ),
+            'nonce'   => wp_create_nonce( 'student_ajax_settings_nonce' ),
+        )
+    );
+}
+add_action( 'admin_enqueue_scripts', 'student_ajax_settings_assets' );
+
+/**
+ * AJAX handler to update a single visibility field.
+ */
+function student_ajax_update_visibility() {
+    check_ajax_referer( 'student_ajax_settings_nonce', 'nonce' );
+
+    if ( ! current_user_can( 'manage_options' ) ) {
+        wp_send_json_error( array( 'message' => __( 'Permission denied.', 'grand-sunrise' ) ), 403 );
+    }
+
+    $field_key = isset( $_POST['field'] ) ? sanitize_key( wp_unslash( $_POST['field'] ) ) : '';
+    $value     = isset( $_POST['value'] ) ? (int) $_POST['value'] : 0;
+
+    $fields = student_meta_fields_definitions();
+    if ( ! isset( $fields[ $field_key ] ) ) {
+        wp_send_json_error( array( 'message' => __( 'Invalid field.', 'grand-sunrise' ) ), 400 );
+    }
+
+    $settings              = get_option( 'student_meta_visibility', array() );
+    $settings[ $field_key ] = $value ? 1 : 0;
+    update_option( 'student_meta_visibility', $settings );
+
+    wp_send_json_success( array( 'field' => $field_key, 'value' => $settings[ $field_key ] ) );
+}
+add_action( 'wp_ajax_student_update_visibility', 'student_ajax_update_visibility' );
+
+/**
+ * Render AJAX settings page.
+ */
+function student_render_ajax_settings_page() {
+    $fields   = student_meta_fields_definitions();
+    $settings = get_option( 'student_meta_visibility', array() );
+    ?>
+    <div class="wrap">
+        <h1><?php esc_html_e( 'Students AJAX Settings', 'grand-sunrise' ); ?></h1>
+        <p><?php esc_html_e( 'Toggle the visibility of each student field. Changes save automatically.', 'grand-sunrise' ); ?></p>
+        <div id="student-ajax-settings">
+            <?php foreach ( $fields as $key => $field ) :
+                $checked = isset( $settings[ $key ] ) ? (bool) $settings[ $key ] : true;
+                ?>
+                <p>
+                    <label>
+                        <input
+                            type="checkbox"
+                            class="student-ajax-setting"
+                            data-field="<?php echo esc_attr( $key ); ?>"
+                            <?php checked( $checked ); ?>
+                        />
+                        <?php echo esc_html( $field['label'] ); ?>
+                    </label>
+                </p>
+            <?php endforeach; ?>
+        </div>
+        <div class="student-ajax-status" style="margin-top: 10px;"></div>
     </div>
     <?php
 }
@@ -466,3 +947,108 @@ function student_save_meta( $post_id ) {
     update_post_meta( $post_id, '_student_active', $active );
 }
 add_action( 'save_post', 'student_save_meta' );
+
+/**
+ * Add "Active" column to students list in admin.
+ */
+function student_add_active_column( $columns ) {
+    $columns['student_active'] = __( 'Active', 'grand-sunrise' );
+    return $columns;
+}
+add_filter( 'manage_student_posts_columns', 'student_add_active_column' );
+
+/**
+ * Populate the "Active" column with checkboxes.
+ */
+function student_render_active_column( $column, $post_id ) {
+    if ( 'student_active' !== $column ) {
+        return;
+    }
+
+    $active = (int) get_post_meta( $post_id, '_student_active', true );
+    $checked = ( 1 === $active ) ? 'checked' : '';
+    ?>
+    <input 
+        type="checkbox" 
+        class="student-active-toggle" 
+        data-post-id="<?php echo esc_attr( $post_id ); ?>" 
+        <?php echo esc_attr( $checked ); ?> 
+        aria-label="<?php esc_attr_e( 'Toggle student active status', 'grand-sunrise' ); ?>"
+    />
+    <?php
+}
+add_action( 'manage_student_posts_custom_column', 'student_render_active_column', 10, 2 );
+
+/**
+ * Enqueue admin scripts for AJAX functionality.
+ */
+function student_enqueue_admin_scripts( $hook ) {
+    // Only load on edit.php for student post type.
+    if ( 'edit.php' !== $hook ) {
+        return;
+    }
+
+    $screen = get_current_screen();
+    if ( ! $screen || 'student' !== $screen->post_type ) {
+        return;
+    }
+
+    wp_enqueue_script(
+        'student-admin-ajax',
+        get_stylesheet_directory_uri() . '/js/student-admin-ajax.js',
+        array( 'jquery' ),
+        '1.0.0',
+        true
+    );
+
+    wp_localize_script(
+        'student-admin-ajax',
+        'studentAdminAjax',
+        array(
+            'ajaxUrl' => admin_url( 'admin-ajax.php' ),
+            'nonce'   => wp_create_nonce( 'student_toggle_active_nonce' ),
+        )
+    );
+}
+add_action( 'admin_enqueue_scripts', 'student_enqueue_admin_scripts' );
+
+/**
+ * AJAX handler to toggle student active status.
+ */
+function student_ajax_toggle_active() {
+    // Verify nonce.
+    if ( ! isset( $_POST['nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['nonce'] ) ), 'student_toggle_active_nonce' ) ) {
+        wp_send_json_error( array( 'message' => __( 'Security check failed.', 'grand-sunrise' ) ) );
+    }
+
+    // Check permissions.
+    if ( ! current_user_can( 'edit_posts' ) ) {
+        wp_send_json_error( array( 'message' => __( 'Insufficient permissions.', 'grand-sunrise' ) ) );
+    }
+
+    // Get and sanitize post ID.
+    $post_id = isset( $_POST['post_id'] ) ? absint( $_POST['post_id'] ) : 0;
+    if ( ! $post_id ) {
+        wp_send_json_error( array( 'message' => __( 'Invalid post ID.', 'grand-sunrise' ) ) );
+    }
+
+    // Verify it's a student post.
+    if ( 'student' !== get_post_type( $post_id ) ) {
+        wp_send_json_error( array( 'message' => __( 'Invalid post type.', 'grand-sunrise' ) ) );
+    }
+
+    // Get and sanitize active status.
+    $active = isset( $_POST['active'] ) ? absint( $_POST['active'] ) : 0;
+    $active = ( 1 === $active ) ? 1 : 0;
+
+    // Update post meta.
+    update_post_meta( $post_id, '_student_active', $active );
+
+    wp_send_json_success(
+        array(
+            'message' => $active ? __( 'Student activated.', 'grand-sunrise' ) : __( 'Student deactivated.', 'grand-sunrise' ),
+            'active'  => $active,
+        )
+    );
+}
+add_action( 'wp_ajax_student_toggle_active', 'student_ajax_toggle_active' );
