@@ -1052,3 +1052,87 @@ function student_ajax_toggle_active() {
     );
 }
 add_action( 'wp_ajax_student_toggle_active', 'student_ajax_toggle_active' );
+
+
+
+
+
+/**
+ * Shortcode: [students_list count="3"]
+ * Displays a list of students with image, name, and class/grade.
+ */
+function gs_students_list_shortcode( $atts ) {
+
+    // Shortcode attributes with defaults.
+    $atts = shortcode_atts(
+        array(
+            'count' => 3,
+            'id'    => 0,
+        ),
+        $atts,
+        'students_list'
+    );
+
+    $count = absint( $atts['count'] );
+    $student_id = absint( $atts['id'] );
+
+    $args = array(
+        'post_type'   => 'student',
+        'post_status' => 'publish',
+    );
+
+    if ( $student_id > 0 ) {
+        $args['p'] = $student_id;
+        $args['posts_per_page'] = 1;
+    } else {
+        if ( $count <= 0 ) {
+            return '';
+        }
+        $args['posts_per_page'] = $count;
+    }
+
+    $query = new WP_Query( $args );
+
+    if ( ! $query->have_posts() ) {
+        return '<p>No students found.</p>';
+    }
+
+    ob_start();
+    ?>
+    <div class="students-shortcode-list" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 20px;">
+        <?php
+        while ( $query->have_posts() ) :
+            $query->the_post();
+
+            $class = get_post_meta( get_the_ID(), '_student_class', true );
+            ?>
+            <div class="student-card" style="border: 1px solid #eee; padding: 15px; text-align: center;">
+                
+                <div class="student-image" style="margin-bottom: 10px;">
+                    <?php
+                    if ( has_post_thumbnail() ) {
+                        the_post_thumbnail( 'medium', array( 'style' => 'max-width:100%; height:auto;' ) );
+                    }
+                    ?>
+                </div>
+
+                <h3 class="student-name" style="margin: 10px 0 5px;">
+                    <?php the_title(); ?>
+                </h3>
+
+                <?php if ( ! empty( $class ) ) : ?>
+                    <div class="student-class" style="font-size: 14px; color: #666;">
+                        <?php echo esc_html( $class ); ?>
+                    </div>
+                <?php endif; ?>
+
+            </div>
+        <?php endwhile; ?>
+    </div>
+    <?php
+
+    wp_reset_postdata();
+
+    return ob_get_clean();
+}
+add_shortcode( 'students_list', 'gs_students_list_shortcode' );
