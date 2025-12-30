@@ -1058,23 +1058,24 @@ add_action( 'wp_ajax_student_toggle_active', 'student_ajax_toggle_active' );
 
 
 /**
- * Shortcode: [students_list count="3"]
- * Displays a list of students with image, name, and class/grade.
+ * Shortcode: [students_list count="3" infinite-scroll="true"]
  */
 function gs_students_list_shortcode( $atts ) {
 
-    // Shortcode attributes with defaults.
     $atts = shortcode_atts(
         array(
-            'count' => 3,
-            'id'    => 0,
+            'count'           => 3,
+            'id'              => 0,
+            'infinite-scroll' => 'false',
         ),
         $atts,
         'students_list'
     );
 
-    $count = absint( $atts['count'] );
-    $student_id = absint( $atts['id'] );
+    $count           = absint( $atts['count'] );
+    $student_id      = absint( $atts['id'] );
+    // Check if infinite scroll is enabled (string 'true' or boolean true)
+    $infinite_scroll = ( 'true' === $atts['infinite-scroll'] || true === $atts['infinite-scroll'] );
 
     $args = array(
         'post_type'   => 'student',
@@ -1082,13 +1083,14 @@ function gs_students_list_shortcode( $atts ) {
     );
 
     if ( $student_id > 0 ) {
-        $args['p'] = $student_id;
+        $args['p']              = $student_id;
         $args['posts_per_page'] = 1;
+        $infinite_scroll        = false; 
     } else {
         if ( $count <= 0 ) {
             return '';
         }
-        $args['posts_per_page'] = $count;
+        $args['posts_per_page'] = -1;
     }
 
     $query = new WP_Query( $args );
@@ -1097,42 +1099,124 @@ function gs_students_list_shortcode( $atts ) {
         return '<p>No students found.</p>';
     }
 
+    $uid = uniqid( 'students_toggle_' );
+
     ob_start();
-    ?>
-    <div class="students-shortcode-list" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 20px;">
+
+    // SCENARIO 1: Standard "Show More" Button (CSS Only)
+    // Only output the CSS-toggle styles if Infinite Scroll is OFF
+    if ( ! $infinite_scroll ) :
+        ?>
+        <style>
+            #<?php echo esc_attr( $uid ); ?>:not(:checked) ~ .students-shortcode-list .student-card:nth-child(n + <?php echo esc_attr( $count + 1 ); ?>) {
+                display: none;
+            }
+            #<?php echo esc_attr( $uid ); ?>:not(:checked) ~ .students-toggle-label .show-less-text {
+                display: none;
+            }
+            #<?php echo esc_attr( $uid ); ?>:checked ~ .students-toggle-label .show-more-text {
+                display: none;
+            }
+        </style>
+        <input type="checkbox" id="<?php echo esc_attr( $uid ); ?>" hidden>
+    <?php endif; ?>
+
+    <div class="students-shortcode-list" id="<?php echo esc_attr( $uid ); ?>_list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:20px;">
         <?php
+        $current_index = 0;
         while ( $query->have_posts() ) :
             $query->the_post();
-
             $class = get_post_meta( get_the_ID(), '_student_class', true );
+            
+            // Logic for Infinite Scroll:
+            // If Infinite Scroll is ON, and we are past the count, hide the item and add a specific class
+            $style_attr = 'border:1px solid #eee;padding:15px;text-align:center;';
+            $item_class = 'student-card';
+
+            if ( $infinite_scroll && $current_index >= $count ) {
+                $style_attr .= 'display:none;';
+                $item_class .= ' gs-infinite-hidden'; // Marker class for JS
+            }
             ?>
-            <div class="student-card" style="border: 1px solid #eee; padding: 15px; text-align: center;">
-                
-                <div class="student-image" style="margin-bottom: 10px;">
+            <div class="<?php echo esc_attr( $item_class ); ?>" style="<?php echo esc_attr( $style_attr ); ?>">
+                <div class="student-image" style="margin-bottom:10px;">
                     <?php
                     if ( has_post_thumbnail() ) {
-                        the_post_thumbnail( 'medium', array( 'style' => 'max-width:100%; height:auto;' ) );
+                        the_post_thumbnail( 'medium', array( 'style' => 'max-width:100%;height:auto;' ) );
                     }
                     ?>
                 </div>
 
-                <h3 class="student-name" style="margin: 10px 0 5px;">
+                <h3 class="student-name" style="margin:10px 0 5px;">
                     <?php the_title(); ?>
                 </h3>
 
                 <?php if ( ! empty( $class ) ) : ?>
-                    <div class="student-class" style="font-size: 14px; color: #666;">
+                    <div class="student-class" style="font-size:14px;color:#666;">
                         <?php echo esc_html( $class ); ?>
                     </div>
                 <?php endif; ?>
-
             </div>
-        <?php endwhile; ?>
+            <?php 
+            $current_index++;
+        endwhile; 
+        ?>
     </div>
+
+    <?php 
+    // SCENARIO 1: Standard "Show More" Button UI
+    if ( ! $infinite_scroll && 0 === $student_id && $query->post_count > $count ) : 
+        ?>
+        <div class="students-toggle-label" style="text-align:center;margin-top:40px;">
+            <label for="<?php echo esc_attr( $uid ); ?>" class="students-toggle-label" style="cursor:pointer;">
+                <span class="show-more-text">Show more</span>
+                <span class="show-less-text">Show less</span>
+            </label>
+        </div>
+    <?php endif; ?>
+
+    <?php 
+    // SCENARIO 2: Infinite Scroll Logic (JS)
+    if ( $infinite_scroll && $query->post_count > $count ) : 
+        ?>
+        <div id="<?php echo esc_attr( $uid ); ?>_sentinel" style="height: 20px; width: 100%;"></div>
+
+        <script>
+        (function() {
+            var sentinel = document.getElementById('<?php echo esc_js( $uid ); ?>_sentinel');
+            var batchSize = <?php echo intval( $count ); ?>; // How many to reveal at once
+            
+            // Intersection Observer configuration
+            var observer = new IntersectionObserver(function(entries) {
+                if(entries[0].isIntersecting === true) {
+                    
+                    // Find all currently hidden items within this specific list
+                    var list = document.getElementById('<?php echo esc_js( $uid ); ?>_list');
+                    var hiddenItems = list.querySelectorAll('.gs-infinite-hidden');
+
+                    if (hiddenItems.length > 0) {
+                        // Reveal the next batch
+                        for (var i = 0; i < batchSize; i++) {
+                            if (hiddenItems[i]) {
+                                hiddenItems[i].style.display = 'block'; // Or 'revert' depending on grid
+                                hiddenItems[i].classList.remove('gs-infinite-hidden');
+                            }
+                        }
+                    } else {
+                        // No more items to show, disconnect observer
+                        observer.disconnect();
+                        sentinel.style.display = 'none';
+                    }
+                }
+            }, { threshold: [0] });
+
+            observer.observe(sentinel);
+        })();
+        </script>
+    <?php endif; ?>
+
     <?php
-
     wp_reset_postdata();
-
     return ob_get_clean();
 }
 add_shortcode( 'students_list', 'gs_students_list_shortcode' );
