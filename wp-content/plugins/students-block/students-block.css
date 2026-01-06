@@ -1,0 +1,99 @@
+/* === Students Block Styles === */
+
+/* WRAPPER */
+.students-block-wrapper {
+    max-width: 1200px;
+    margin: 240px ;
+    padding: 0 20px;
+}
+
+/* GRID */
+.students-block-grid {
+    display: grid;
+    width: 900px;
+    margin: 0 auto;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 50px;
+    margin-bottom: 50px;
+}
+
+/* STUDENT CARD */
+.students-block-card {
+    background: #f4efec;
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+}
+
+/* Image */
+.students-block-thumb img {
+    width: 100%;
+    height: 350px;
+    object-fit: cover;
+    position: top-center;
+}
+
+/* Card content */
+.students-block-info {
+    padding: 20px;
+}
+
+/* Categories inside card */
+.students-block-categories {
+    font-size: 14px;
+    color: #555;
+    margin-bottom: 8px;
+}
+
+.students-block-categories a {
+    text-decoration: none;
+    color: #0073aa;
+}
+
+.students-block-categories a:hover {
+    text-decoration: underline;
+}
+
+/* Name */
+.students-block-name {
+    font-size: 22px;
+    font-weight: 600;
+    margin-bottom: 10px;
+}
+
+.students-block-name a {
+    text-decoration: none;
+    color: #1a1a1a;
+}
+
+.students-block-name a:hover {
+    color: #0073aa;
+}
+
+/* Excerpt */
+.students-block-excerpt {
+    font-size: 16px;
+    line-height: 1.4;
+    opacity: 0.9;
+}
+
+/* No results message */
+.students-block-no-results {
+    padding: 20px;
+    text-align: center;
+    color: #666;
+}
+
+/* RESPONSIVE */
+@media (max-width: 768px) {
+    .students-block-grid {
+        gap: 30px;
+        width: 100%;
+        grid-template-columns: 1fr;
+    }
+
+    .students-block-thumb img {
+        height: 250px;
+    }
+}
+

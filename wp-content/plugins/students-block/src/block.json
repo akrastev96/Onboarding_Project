@@ -1,0 +1,39 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "students-block/students",
+	"version": "1.0.0",
+	"title": "Students Block",
+	"category": "widgets",
+	"icon": "groups",
+	"description": "Display students with filtering options.",
+	"example": {},
+	"supports": {
+		"html": false
+	},
+	"textdomain": "students-block",
+	"editorScript": "file:./index.js",
+	"editorStyle": "file:./index.css",
+	"style": "file:./style-index.css",
+	"render": "file:./render.php",
+	"attributes": {
+		"numberOfStudents": {
+			"type": "number",
+			"default": 4
+		},
+		"filterByStatus": {
+			"type": "string",
+			"default": "all",
+			"enum": ["all", "active", "inactive"]
+		},
+		"showSingle": {
+			"type": "boolean",
+			"default": false
+		},
+		"studentId": {
+			"type": "number",
+			"default": 0
+		}
+	}
+}
+

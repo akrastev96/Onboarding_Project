@@ -1,0 +1,91 @@
+/**
+ * Frontend styles for Students Block
+ */
+
+.students-block-wrapper {
+	margin: 20px 0;
+}
+
+.students-block-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+	gap: 20px;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.students-block-card {
+	background: #fff;
+	border: 1px solid #ddd;
+	border-radius: 4px;
+	overflow: hidden;
+	transition: box-shadow 0.3s ease;
+}
+
+.students-block-card:hover {
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.students-block-thumb {
+	margin: 0;
+	overflow: hidden;
+}
+
+.students-block-thumb img {
+	width: 100%;
+	height: auto;
+	display: block;
+	transition: transform 0.3s ease;
+}
+
+.students-block-card:hover .students-block-thumb img {
+	transform: scale(1.05);
+}
+
+.students-block-info {
+	padding: 15px;
+}
+
+.students-block-categories {
+	margin-bottom: 10px;
+	font-size: 14px;
+	color: #666;
+}
+
+.students-block-categories a {
+	color: #0073aa;
+	text-decoration: none;
+}
+
+.students-block-categories a:hover {
+	text-decoration: underline;
+}
+
+.students-block-name {
+	margin: 0 0 10px 0;
+	font-size: 20px;
+	font-weight: bold;
+}
+
+.students-block-name a {
+	color: #1a1a1a;
+	text-decoration: none;
+}
+
+.students-block-name a:hover {
+	color: #0073aa;
+}
+
+.students-block-excerpt {
+	margin: 0;
+	color: #666;
+	line-height: 1.6;
+}
+
+.students-block-no-results {
+	padding: 20px;
+	text-align: center;
+	color: #666;
+}
+
