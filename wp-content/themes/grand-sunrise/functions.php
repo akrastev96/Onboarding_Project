@@ -949,6 +949,399 @@ function student_save_meta( $post_id ) {
 add_action( 'save_post', 'student_save_meta' );
 
 /**
+ * ============================
+ *  Students REST API Endpoints
+ * ============================
+ */
+
+/**
+ * Helper: prepare a single student object for REST responses.
+ *
+ * Only includes data that is already publicly visible on the front end.
+ *
+ * @param WP_Post $post Student post object.
+ * @return array
+ */
+function students_rest_prepare_student( $post ) {
+	$post_id = $post->ID;
+
+	// Basic post data.
+	$data = array(
+		'id'          => (int) $post_id,
+		'title'       => get_the_title( $post ),
+		'content'     => apply_filters( 'the_content', $post->post_content ),
+		'excerpt'     => get_the_excerpt( $post ),
+		'permalink'   => get_permalink( $post ),
+		'date'        => get_the_date( DATE_ATOM, $post ),
+		'modified'    => get_the_modified_date( DATE_ATOM, $post ),
+		'featured_image' => get_the_post_thumbnail_url( $post, 'large' ),
+	);
+
+	// Categories (names and IDs) – already public on site.
+	$categories = get_the_category( $post_id );
+	$data['categories'] = array();
+	if ( ! empty( $categories ) && ! is_wp_error( $categories ) ) {
+		foreach ( $categories as $cat ) {
+			$data['categories'][] = array(
+				'id'   => (int) $cat->term_id,
+				'name' => $cat->name,
+				'slug' => $cat->slug,
+			);
+		}
+	}
+
+	// Student meta – same fields as shown on the single student template.
+	$meta = get_post_meta( $post_id );
+
+	$country = isset( $meta['_student_country'][0] ) ? sanitize_text_field( $meta['_student_country'][0] ) : '';
+	$city    = isset( $meta['_student_city'][0] ) ? sanitize_text_field( $meta['_student_city'][0] ) : '';
+	$address = isset( $meta['_student_address'][0] ) ? sanitize_text_field( $meta['_student_address'][0] ) : '';
+	$birth   = isset( $meta['_student_birthdate'][0] ) ? sanitize_text_field( $meta['_student_birthdate'][0] ) : '';
+	$class   = isset( $meta['_student_class'][0] ) ? sanitize_text_field( $meta['_student_class'][0] ) : '';
+	$active  = isset( $meta['_student_active'][0] ) ? (int) $meta['_student_active'][0] : 0;
+
+	$data['meta'] = array(
+		'country'   => $country,
+		'city'      => $city,
+		'address'   => $address,
+		'birthdate' => $birth,
+		'class'     => $class,
+		'active'    => (bool) $active,
+	);
+
+	return $data;
+}
+
+/**
+ * Register custom REST routes for Students.
+ */
+function students_register_rest_routes() {
+	// GET /wp-json/students/v1/students
+	register_rest_route(
+		'students/v1',
+		'/students',
+		array(
+			'methods'             => WP_REST_Server::READABLE,
+			'callback'            => 'students_rest_get_students',
+			'permission_callback' => '__return_true', // Public.
+		)
+	);
+
+	// GET /wp-json/students/v1/students/{id}
+	register_rest_route(
+		'students/v1',
+		'/students/(?P<id>\\d+)',
+		array(
+			'methods'             => WP_REST_Server::READABLE,
+			'callback'            => 'students_rest_get_student',
+			'permission_callback' => '__return_true', // Public.
+			'args'                => array(
+				'id' => array(
+					'validate_callback' => function ( $param ) {
+						return is_numeric( $param ) && $param > 0;
+					},
+				),
+			),
+		)
+	);
+
+	// POST /wp-json/students/v1/students  (create)
+	register_rest_route(
+		'students/v1',
+		'/students',
+		array(
+			'methods'             => WP_REST_Server::CREATABLE,
+			'callback'            => 'students_rest_create_student',
+			'permission_callback' => 'students_rest_require_admin',
+		)
+	);
+
+	// PUT/PATCH /wp-json/students/v1/students/{id}  (update)
+	register_rest_route(
+		'students/v1',
+		'/students/(?P<id>\\d+)',
+		array(
+			'methods'             => WP_REST_Server::EDITABLE,
+			'callback'            => 'students_rest_update_student',
+			'permission_callback' => 'students_rest_require_admin',
+			'args'                => array(
+				'id' => array(
+					'validate_callback' => function ( $param ) {
+						return is_numeric( $param ) && $param > 0;
+					},
+				),
+			),
+		)
+	);
+
+	// DELETE /wp-json/students/v1/students/{id}  (delete)
+	register_rest_route(
+		'students/v1',
+		'/students/(?P<id>\\d+)',
+		array(
+			'methods'             => WP_REST_Server::DELETABLE,
+			'callback'            => 'students_rest_delete_student',
+			'permission_callback' => 'students_rest_require_admin',
+			'args'                => array(
+				'id' => array(
+					'validate_callback' => function ( $param ) {
+						return is_numeric( $param ) && $param > 0;
+					},
+				),
+			),
+		)
+	);
+}
+add_action( 'rest_api_init', 'students_register_rest_routes' );
+
+/**
+ * REST callback: get all students with meta.
+ *
+ * @param WP_REST_Request $request Request object.
+ * @return WP_REST_Response
+ */
+function students_rest_get_students( WP_REST_Request $request ) {
+	$args = array(
+		'post_type'      => 'student',
+		'post_status'    => 'publish',
+		'posts_per_page' => -1,
+		'orderby'        => 'title',
+		'order'          => 'ASC',
+	);
+
+	$query   = new WP_Query( $args );
+	$students = array();
+
+	if ( $query->have_posts() ) {
+		foreach ( $query->posts as $post ) {
+			$students[] = students_rest_prepare_student( $post );
+		}
+	}
+
+	return new WP_REST_Response( $students, 200 );
+}
+
+/**
+ * REST callback: get a single student by ID with meta.
+ *
+ * @param WP_REST_Request $request Request object.
+ * @return WP_REST_Response
+ */
+function students_rest_get_student( WP_REST_Request $request ) {
+	$id = (int) $request['id'];
+
+	$post = get_post( $id );
+	if ( ! $post || 'student' !== $post->post_type || 'publish' !== $post->post_status ) {
+		return new WP_REST_Response(
+			array(
+				'message' => __( 'Student not found.', 'grand-sunrise' ),
+			),
+			404
+		);
+	}
+
+	$data = students_rest_prepare_student( $post );
+
+	return new WP_REST_Response( $data, 200 );
+}
+
+/**
+ * Permission callback: allow only administrators (or users with manage_options).
+ *
+ * @return bool
+ */
+function students_rest_require_admin() {
+	return current_user_can( 'manage_options' );
+}
+
+/**
+ * REST callback: create a new student.
+ *
+ * Expects JSON body with optional fields:
+ * - title (string, required)
+ * - content (string)
+ * - categories (array of term IDs)
+ * - meta: country, city, address, birthdate, class, active (bool/int)
+ *
+ * @param WP_REST_Request $request Request.
+ * @return WP_REST_Response
+ */
+function students_rest_create_student( WP_REST_Request $request ) {
+	$title = $request->get_param( 'title' );
+	if ( empty( $title ) ) {
+		return new WP_REST_Response(
+			array( 'message' => __( 'Title is required.', 'grand-sunrise' ) ),
+			400
+		);
+	}
+
+	$content = $request->get_param( 'content' );
+
+	$postarr = array(
+		'post_type'    => 'student',
+		'post_status'  => 'publish',
+		'post_title'   => sanitize_text_field( $title ),
+		'post_content' => $content ? wp_kses_post( $content ) : '',
+	);
+
+	$post_id = wp_insert_post( $postarr, true );
+
+	if ( is_wp_error( $post_id ) ) {
+		return new WP_REST_Response(
+			array( 'message' => __( 'Failed to create student.', 'grand-sunrise' ) ),
+			500
+		);
+	}
+
+	// Categories.
+	$categories = $request->get_param( 'categories' );
+	if ( is_array( $categories ) ) {
+		$cat_ids = array_map( 'absint', $categories );
+		wp_set_post_terms( $post_id, $cat_ids, 'category', false );
+	}
+
+	// Meta.
+	$meta = $request->get_param( 'meta' );
+	if ( is_array( $meta ) ) {
+		students_rest_update_meta_from_array( $post_id, $meta );
+	}
+
+	$post = get_post( $post_id );
+	$data = students_rest_prepare_student( $post );
+
+	return new WP_REST_Response( $data, 201 );
+}
+
+/**
+ * REST callback: update an existing student.
+ *
+ * @param WP_REST_Request $request Request.
+ * @return WP_REST_Response
+ */
+function students_rest_update_student( WP_REST_Request $request ) {
+	$id   = (int) $request['id'];
+	$post = get_post( $id );
+
+	if ( ! $post || 'student' !== $post->post_type ) {
+		return new WP_REST_Response(
+			array( 'message' => __( 'Student not found.', 'grand-sunrise' ) ),
+			404
+		);
+	}
+
+	$update = array(
+		'ID' => $id,
+	);
+
+	if ( null !== $request->get_param( 'title' ) ) {
+		$update['post_title'] = sanitize_text_field( $request->get_param( 'title' ) );
+	}
+
+	if ( null !== $request->get_param( 'content' ) ) {
+		$update['post_content'] = wp_kses_post( $request->get_param( 'content' ) );
+	}
+
+	// Only call wp_update_post if we actually have fields to change.
+	if ( count( $update ) > 1 ) {
+		$result = wp_update_post( $update, true );
+
+		if ( is_wp_error( $result ) ) {
+			return new WP_REST_Response(
+				array( 'message' => __( 'Failed to update student.', 'grand-sunrise' ) ),
+				500
+			);
+		}
+	}
+
+	// Categories (optional).
+	if ( null !== $request->get_param( 'categories' ) ) {
+		$categories = $request->get_param( 'categories' );
+		if ( is_array( $categories ) ) {
+			$cat_ids = array_map( 'absint', $categories );
+			wp_set_post_terms( $id, $cat_ids, 'category', false );
+		}
+	}
+
+	// Meta (optional).
+	if ( null !== $request->get_param( 'meta' ) ) {
+		$meta = $request->get_param( 'meta' );
+		if ( is_array( $meta ) ) {
+			students_rest_update_meta_from_array( $id, $meta );
+		}
+	}
+
+	$updated_post = get_post( $id );
+	$data         = students_rest_prepare_student( $updated_post );
+
+	return new WP_REST_Response( $data, 200 );
+}
+
+/**
+ * REST callback: delete a student.
+ *
+ * @param WP_REST_Request $request Request.
+ * @return WP_REST_Response
+ */
+function students_rest_delete_student( WP_REST_Request $request ) {
+	$id   = (int) $request['id'];
+	$post = get_post( $id );
+
+	if ( ! $post || 'student' !== $post->post_type ) {
+		return new WP_REST_Response(
+			array( 'message' => __( 'Student not found.', 'grand-sunrise' ) ),
+			404
+		);
+	}
+
+	$result = wp_trash_post( $id );
+
+	if ( ! $result ) {
+		return new WP_REST_Response(
+			array( 'message' => __( 'Failed to delete student.', 'grand-sunrise' ) ),
+			500
+		);
+	}
+
+	return new WP_REST_Response(
+		array(
+			'message' => __( 'Student moved to trash.', 'grand-sunrise' ),
+			'id'      => $id,
+		),
+		200
+	);
+}
+
+/**
+ * Helper: update student meta from an associative array.
+ *
+ * @param int   $post_id Post ID.
+ * @param array $meta    Meta array from request.
+ * @return void
+ */
+function students_rest_update_meta_from_array( $post_id, array $meta ) {
+	if ( array_key_exists( 'country', $meta ) ) {
+		update_post_meta( $post_id, '_student_country', sanitize_text_field( $meta['country'] ) );
+	}
+	if ( array_key_exists( 'city', $meta ) ) {
+		update_post_meta( $post_id, '_student_city', sanitize_text_field( $meta['city'] ) );
+	}
+	if ( array_key_exists( 'address', $meta ) ) {
+		update_post_meta( $post_id, '_student_address', sanitize_text_field( $meta['address'] ) );
+	}
+	if ( array_key_exists( 'birthdate', $meta ) ) {
+		update_post_meta( $post_id, '_student_birthdate', sanitize_text_field( $meta['birthdate'] ) );
+	}
+	if ( array_key_exists( 'class', $meta ) ) {
+		update_post_meta( $post_id, '_student_class', sanitize_text_field( $meta['class'] ) );
+	}
+	if ( array_key_exists( 'active', $meta ) ) {
+		$active = (int) $meta['active'] ? 1 : 0;
+		update_post_meta( $post_id, '_student_active', $active );
+	}
+}
+
+
+/**
  * Add "Active" column to students list in admin.
  */
 function student_add_active_column( $columns ) {
