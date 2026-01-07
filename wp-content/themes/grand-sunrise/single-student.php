@@ -105,6 +105,48 @@ if ( have_posts() ) :
 </div>
 
 <?php
+$linked_students = get_field( 'linked_students' );
+
+if ( ! empty( $linked_students ) ) :
+?>
+	<section class="linked-students" style="margin-top:40px;">
+		<h2><?php esc_html_e( 'Linked Students', 'grand-sunrise' ); ?></h2>
+
+		<div class="linked-students-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:20px;margin-top:20px;">
+			<?php foreach ( $linked_students as $row ) :
+				$student = $row['student'];
+
+				// Safety check
+				if ( ! $student instanceof WP_Post ) {
+					continue;
+				}
+
+				// Prevent self-linking display
+				if ( get_the_ID() === $student->ID ) {
+					continue;
+				}
+				?>
+				<article class="linked-student-card" style="border:1px solid #eee;padding:15px;text-align:center;">
+					
+					<?php if ( has_post_thumbnail( $student ) ) : ?>
+						<div class="linked-student-image" style="margin-bottom:10px;">
+							<?php echo get_the_post_thumbnail( $student, 'medium' ); ?>
+						</div>
+					<?php endif; ?>
+
+					<h3 style="margin:10px 0 5px;">
+						<a href="<?php echo esc_url( get_permalink( $student ) ); ?>">
+							<?php echo esc_html( get_the_title( $student ) ); ?>
+						</a>
+					</h3>
+
+				</article>
+			<?php endforeach; ?>
+		</div>
+	</section>
+<?php endif; ?>
+
+<?php
     endwhile;
 endif;
 

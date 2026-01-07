@@ -1613,3 +1613,57 @@ function gs_students_list_shortcode( $atts ) {
     return ob_get_clean();
 }
 add_shortcode( 'students_list', 'gs_students_list_shortcode' );
+
+
+//=========== Show Header/Footer ==============
+
+add_filter( 'render_block', function ( $block_content, $block ) {
+
+	// Header
+	if (
+		isset( $block['blockName'] ) &&
+		'core/template-part' === $block['blockName'] &&
+		isset( $block['attrs']['slug'] )
+	) {
+		$slug = $block['attrs']['slug'];
+
+		// Hide Header
+		if ( 'header' === $slug && ! get_field( 'header', 'option' ) ) {
+			return '';
+		}
+
+		// Hide Footer
+		if ( 'footer' === $slug && ! get_field( 'footer', 'option' ) ) {
+			return '';
+		}
+	}
+
+	return $block_content;
+
+}, 10, 2 );
+
+
+
+//============= GB Block with ACF Fields ==============
+
+function gs_register_acf_blocks() {
+
+	if ( ! function_exists( 'acf_register_block_type' ) ) {
+		return;
+	}
+
+	acf_register_block_type( array(
+		'name'            => 'ACF Stidents',
+		'title'           => __( 'ACF Students', 'grand-sunrise' ),
+		'description'     => __( 'A custom block built with ACF only.', 'grand-sunrise' ),
+		'render_template' => get_stylesheet_directory() . '/blocks/acf-students.php',
+		'category'        => 'widgets',
+		'icon'            => 'groups',
+		'keywords'        => array( 'acf', 'students' ),
+		'mode'            => 'preview',
+		'supports'        => array(
+			'align' => true,
+		),
+	) );
+}
+add_action( 'acf/init', 'gs_register_acf_blocks' );
