@@ -30,19 +30,23 @@ if ( ! $query->have_posts() ) {
 			<article class="student-card">
 
 				<div class="student-thumb">
-					<?php the_post_thumbnail( 'large' ); ?>
+					<a href="<?php the_permalink(); ?>">
+						<?php the_post_thumbnail( 'large' ); ?>
+					</a>
 				</div>
 
 				<div class="student-info">
+					<a href="<?php the_permalink(); ?>">
 					<div class="student-categories">
 						<?php echo esc_html( implode( ', ', wp_list_pluck( get_the_category(), 'name' ) ) ); ?>
-					</div>
+						</div>
 
-					<h3 class="student-name"><?php the_title(); ?></h3>
+						<h3 class="student-name"><?php the_title(); ?></h3>
 
-					<div class="student-excerpt">
-						<?php echo wp_trim_words( get_the_excerpt(), 18 ); ?>
-					</div>
+						<div class="student-excerpt">
+							<?php echo wp_trim_words( get_the_excerpt(), 18 ); ?>
+						</div>
+					</a>
 				</div>
 
 			</article>
