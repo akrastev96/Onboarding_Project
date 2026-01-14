@@ -760,6 +760,13 @@ add_action( 'profile_update', 'gs_notify_admin_on_profile_update', 10, 2 );
  * Runs after the content in the custom page template
  * checks which page template is being used and appends a note after the content.
  */
+
+ add_action( 'gs_after_custom_template_content', function() {
+    echo '<div class="gs-after-custom-template-content">';
+    echo '<p>After Custom Template Content</p>';
+    echo '</div>';
+} );
+
 function gs_append_after_content_on_custom_template( $content ) {
     if ( ! is_singular() ) {
         return $content;
@@ -774,8 +781,12 @@ function gs_append_after_content_on_custom_template( $content ) {
             'templates/my-custom-template.html',
         ),
         true
-    );
-
+    ); {
+            ob_start();
+            do_action( 'gs_after_custom_template_content' );
+            $content .= ob_get_clean();
+        }
+    
     if ( $matches_template ) {
         $content .= '<p>This runs after the content via a custom action hook.</p>';
     }
