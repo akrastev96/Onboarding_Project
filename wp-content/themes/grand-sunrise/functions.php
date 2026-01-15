@@ -709,26 +709,37 @@ add_filter( 'the_content', 'gs_insert_three_after_two', 30 );
  */
 function gs_add_profile_settings_nav_item( $block_content, $block ) {
 
-    // Only target the Navigation block and only for logged-in users.
-    if ( 'core/navigation' === $block['blockName'] && is_user_logged_in() ) {
+    if ( 'core/navigation' !== $block['blockName'] || ! is_user_logged_in() ) {
+        return $block_content;
+    }
 
-        // If a "Profile settings" link is already present, do nothing.
-        if ( false !== strpos( $block_content, 'Profile settings' ) ) {
-            return $block_content;
-        }
+    if ( strpos( $block_content, 'profile.php' ) !== false ) {
+        return $block_content;
+    }
 
-        $profile_url = esc_url( admin_url( 'profile.php' ) );
-        $new_item    = '<li class="wp-block-navigation-item"><a href="' . $profile_url . '">Profile settings</a></li>';
-        
-        $last_ul_pos = strrpos( $block_content, '</ul>' );
-        if ( false !== $last_ul_pos ) {
-            $block_content = substr_replace( $block_content, $new_item . '</ul>', $last_ul_pos, strlen( '</ul>' ) );
-        }
+    $profile_url = esc_url( admin_url( 'profile.php' ) );
 
+    $new_item = '
+    <li class="wp-block-pages-list__item wp-block-navigation-item open-on-hover-click">
+        <a class="wp-block-navigation-item__content" href="' . $profile_url . '">
+            <span class="wp-block-navigation-item__label">Profile settings</span>
+        </a>
+    </li>';
+
+    $pattern = '/(<ul class="wp-block-page-list">)(.*?)(<\/ul>)/s';
+
+    if ( preg_match( $pattern, $block_content ) ) {
+        $block_content = preg_replace(
+            $pattern,
+            '$1$2' . $new_item . '$3',
+            $block_content,
+            1
+        );
     }
 
     return $block_content;
 }
+
 add_filter( 'render_block', 'gs_add_profile_settings_nav_item', 10, 2 );
 
 /**
