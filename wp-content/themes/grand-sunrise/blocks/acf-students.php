@@ -10,7 +10,7 @@ $args = array(
 if ( $categories ) {
 	$args['tax_query'] = array(
 		array(
-			'taxonomy' => 'category',
+			'taxonomy' => 'student_category',
 			'field'    => 'term_id',
 			'terms'    => wp_list_pluck( $categories, 'term_id' ),
 		),
@@ -30,15 +30,37 @@ if ( ! $query->have_posts() ) {
 			<article class="student-card">
 
 				<div class="student-thumb">
-					<?php the_post_thumbnail( 'large' ); ?>
+					<a href="<?php the_permalink(); ?>">
+						<?php the_post_thumbnail( 'large' ); ?>
+					</a>
 				</div>
 
 				<div class="student-info">
 					<div class="student-categories">
-						<?php echo esc_html( implode( ', ', wp_list_pluck( get_the_category(), 'name' ) ) ); ?>
+						<?php
+						$terms = get_the_terms( get_the_ID(), 'student_category' );
+
+						if ( ! empty( $terms ) && ! is_wp_error( $terms ) ) {
+							$links = array();
+
+							foreach ( $terms as $term ) {
+								$links[] = sprintf(
+									'<a href="%s">%s</a>',
+									esc_url( get_term_link( $term ) ),
+									esc_html( $term->name )
+								);
+							}
+
+							echo implode( ', ', $links );
+						}
+						?>
 					</div>
 
-					<h3 class="student-name"><?php the_title(); ?></h3>
+					<h3 class="student-name">
+						<a href="<?php the_permalink(); ?>">
+							<?php the_title(); ?>
+						</a>
+					</h3>
 
 					<div class="student-excerpt">
 						<?php echo wp_trim_words( get_the_excerpt(), 18 ); ?>

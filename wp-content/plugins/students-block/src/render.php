@@ -59,17 +59,17 @@ function students_block_render_callback( $attributes ) {
 
 					<div class="students-block-info">
 						<?php
-						$cats = get_the_category();
-						if ( ! empty( $cats ) ) :
+						$terms = get_the_terms( get_the_ID(), 'subject' );
+						if ( ! empty( $terms ) && ! is_wp_error( $terms ) ) :
 							?>
 							<div class="students-block-categories">
 								<?php
 								$links = array();
-								foreach ( $cats as $cat ) {
+								foreach ( $terms as $term ) {
 									$links[] = sprintf(
 										'<a href="%s">%s</a>',
-										esc_url( add_query_arg( 'post_type', 'student', get_category_link( $cat ) ) ),
-										esc_html( $cat->name )
+										esc_url( get_term_link( $term ) ),
+										esc_html( $term->name )
 									);
 								}
 								echo implode( ', ', $links );

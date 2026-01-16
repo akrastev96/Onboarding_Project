@@ -27,16 +27,21 @@ if ( have_posts() ) :
             <!-- Categories -->
             <div class="student-categories">
                 <?php
-                $cats = get_the_category();
-                $links = array();
-                foreach ( $cats as $cat ) {
-                    $links[] = sprintf(
-                        '<a href="%s">%s</a>',
-                        esc_url( add_query_arg( 'post_type', 'student', get_category_link( $cat ) ) ),
-                        esc_html( $cat->name )
-                    );
+                $terms = get_the_terms( get_the_ID(), 'student_category' );
+
+                if ( ! empty( $terms ) && ! is_wp_error( $terms ) ) {
+                    $links = array();
+
+                    foreach ( $terms as $term ) {
+                        $links[] = sprintf(
+                            '<a href="%s">%s</a>',
+                            esc_url( get_term_link( $term ) ),
+                            esc_html( $term->name )
+                        );
+                    }
+
+                    echo implode( ', ', $links );
                 }
-                echo implode( ', ', $links );
                 ?>
 				</div>
 

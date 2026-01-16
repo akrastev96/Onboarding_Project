@@ -999,15 +999,16 @@ function students_rest_prepare_student( $post ) {
 		'featured_image' => get_the_post_thumbnail_url( $post, 'large' ),
 	);
 
-	// Categories (names and IDs) – already public on site.
-	$categories = get_the_category( $post_id );
+	// Categories (names and IDs) – from student_category taxonomy.
+	$terms = get_the_terms( $post_id, 'student_category' );
 	$data['categories'] = array();
-	if ( ! empty( $categories ) && ! is_wp_error( $categories ) ) {
-		foreach ( $categories as $cat ) {
+
+	if ( ! empty( $terms ) && ! is_wp_error( $terms ) ) {
+		foreach ( $terms as $term ) {
 			$data['categories'][] = array(
-				'id'   => (int) $cat->term_id,
-				'name' => $cat->name,
-				'slug' => $cat->slug,
+				'id'   => (int) $term->term_id,
+				'name' => $term->name,
+				'slug' => $term->slug,
 			);
 		}
 	}
@@ -1219,7 +1220,7 @@ function students_rest_create_student( WP_REST_Request $request ) {
 	$categories = $request->get_param( 'categories' );
 	if ( is_array( $categories ) ) {
 		$cat_ids = array_map( 'absint', $categories );
-		wp_set_post_terms( $post_id, $cat_ids, 'category', false );
+		wp_set_post_terms( $post_id, $cat_ids, 'student_category', false );
 	}
 
 	// Meta.
@@ -1280,7 +1281,7 @@ function students_rest_update_student( WP_REST_Request $request ) {
 		$categories = $request->get_param( 'categories' );
 		if ( is_array( $categories ) ) {
 			$cat_ids = array_map( 'absint', $categories );
-			wp_set_post_terms( $id, $cat_ids, 'category', false );
+			wp_set_post_terms( $id, $cat_ids, 'student_category', false );
 		}
 	}
 

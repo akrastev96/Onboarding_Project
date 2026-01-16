@@ -113,13 +113,45 @@ function sasho_register_student_cpt() {
             'excerpt',
             'thumbnail'
         ),
-        'taxonomies'          => array( 'category' ),
         'show_in_rest'        => true,
     );
 
     register_post_type( 'student', $args );
 }
 add_action( 'init', 'sasho_register_student_cpt' );
+
+function sasho_register_student_taxonomy() {
+
+    $labels = array(
+        'name'              => __( 'Student Categories', 'students' ),
+        'singular_name'     => __( 'Student Category', 'students' ),
+        'search_items'      => __( 'Search Student Categories', 'students' ),
+        'all_items'         => __( 'All Student Categories', 'students' ),
+        'parent_item'       => __( 'Parent Student Category', 'students' ),
+        'parent_item_colon' => __( 'Parent Student Category:', 'students' ),
+        'edit_item'         => __( 'Edit Student Category', 'students' ),
+        'update_item'       => __( 'Update Student Category', 'students' ),
+        'add_new_item'      => __( 'Add New Student Category', 'students' ),
+        'new_item_name'     => __( 'New Student Category Name', 'students' ),
+        'menu_name'         => __( 'Student Categories', 'students' ),
+    );
+
+    $args = array(
+        'hierarchical'      => true,
+        'labels'            => $labels,
+        'show_ui'           => true,
+        'show_admin_column' => true,
+        'query_var'         => true,
+        'rewrite'           => array(
+            'slug' => 'student-category',
+        ),
+        'show_in_rest'      => true,
+    );
+
+    register_taxonomy( 'student_category', array( 'student' ), $args );
+}
+
+add_action( 'init', 'sasho_register_student_taxonomy' );
 
 /**
  * Begins execution of the plugin.
