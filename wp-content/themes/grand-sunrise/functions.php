@@ -1567,7 +1567,7 @@ function gs_students_list_shortcode( $atts ) {
         <?php if ( $total_count > $batch_size && 0 === $student_id ) : ?>
             <div class="students-load-more-wrapper" style="text-align:center;margin-top:40px;">
                 <button class="students-load-more-btn" data-list-id="<?php echo esc_attr( $uid ); ?>" style="padding:12px 24px;background:#0073aa;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:16px;">
-                    Load More
+                    Show More
                 </button>
                 <span class="students-loading" style="display:none;margin-left:10px;">Loading...</span>
             </div>
