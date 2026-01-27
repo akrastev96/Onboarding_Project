@@ -1,6 +1,14 @@
 /*
- Theme Name: Grand Sunrise
- Template: twentytwentyfour
+Theme Name: Grand Sunrise
+Description: A custom child theme built as part of an onboarding project. It extends Twenty Twenty-Four with custom templates, layouts, and styling experiments for learning and internal use.
+Author: Sasho
+Author URI: https://github.com/akrastev96
+Template: twentytwentyfour
+Version: 1.0.0
+License: GNU General Public License v2 or later
+License URI: https://www.gnu.org/licenses/gpl-2.0.html
+Text Domain: grand-sunrise
+Tags: child-theme, onboarding, block-theme, custom-templates
 */
 
 /* ---------- SINGLE POST LAYOUT ---------- */
