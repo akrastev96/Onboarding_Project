@@ -1474,168 +1474,231 @@ add_action( 'wp_ajax_student_toggle_active', 'student_ajax_toggle_active' );
 
 
 /**
- * Shortcode: [students_list count="3" infinite-scroll="true"]
+ * Shortcode: [students_list id="0"]
+ * Loads students in batches of 2 via AJAX "Load More" button.
  */
 function gs_students_list_shortcode( $atts ) {
-
     $atts = shortcode_atts(
         array(
-            'count'           => 3,
-            'id'              => 0,
-            'infinite-scroll' => 'false',
+            'id' => 0,
         ),
         $atts,
         'students_list'
     );
 
-    $count           = absint( $atts['count'] );
-    $student_id      = absint( $atts['id'] );
-    // Check if infinite scroll is enabled (string 'true' or boolean true)
-    $infinite_scroll = ( 'true' === $atts['infinite-scroll'] || true === $atts['infinite-scroll'] );
+    $student_id = absint( $atts['id'] );
+    $batch_size = 2; // Always load 2 at a time
 
-    $args = array(
+    // Get total count for reference
+    $total_args = array(
         'post_type'   => 'student',
         'post_status' => 'publish',
+        'posts_per_page' => -1,
+        'fields'       => 'ids',
+    );
+
+    if ( $student_id > 0 ) {
+        $total_args['p'] = $student_id;
+    }
+
+    $total_query = new WP_Query( $total_args );
+    $total_count = $total_query->found_posts;
+    wp_reset_postdata();
+
+    if ( $total_count === 0 ) {
+        return '<p>No students found.</p>';
+    }
+
+    // Load initial batch (first 2)
+    $args = array(
+        'post_type'      => 'student',
+        'post_status'    => 'publish',
+        'posts_per_page' => $batch_size,
+        'orderby'        => 'date',
+        'order'          => 'DESC',
     );
 
     if ( $student_id > 0 ) {
         $args['p']              = $student_id;
         $args['posts_per_page'] = 1;
-        $infinite_scroll        = false; 
-    } else {
-        if ( $count <= 0 ) {
-            return '';
-        }
-        $args['posts_per_page'] = -1;
     }
 
     $query = new WP_Query( $args );
 
-    if ( ! $query->have_posts() ) {
-        return '<p>No students found.</p>';
-    }
-
-    $uid = uniqid( 'students_toggle_' );
+    $uid = uniqid( 'students_list_' );
 
     ob_start();
+    ?>
 
-    // SCENARIO 1: Standard "Show More" Button (CSS Only)
-    // Only output the CSS-toggle styles if Infinite Scroll is OFF
-    if ( ! $infinite_scroll ) :
-        ?>
-        <style>
-            #<?php echo esc_attr( $uid ); ?>:not(:checked) ~ .students-shortcode-list .student-card:nth-child(n + <?php echo esc_attr( $count + 1 ); ?>) {
-                display: none;
-            }
-            #<?php echo esc_attr( $uid ); ?>:not(:checked) ~ .students-toggle-label .show-less-text {
-                display: none;
-            }
-            #<?php echo esc_attr( $uid ); ?>:checked ~ .students-toggle-label .show-more-text {
-                display: none;
-            }
-        </style>
-        <input type="checkbox" id="<?php echo esc_attr( $uid ); ?>" hidden>
-    <?php endif; ?>
-
-    <div class="students-shortcode-list" id="<?php echo esc_attr( $uid ); ?>_list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:20px;">
-        <?php
-        $current_index = 0;
-        while ( $query->have_posts() ) :
-            $query->the_post();
-            $class = get_post_meta( get_the_ID(), '_student_class', true );
-            
-            // Logic for Infinite Scroll:
-            // If Infinite Scroll is ON, and we are past the count, hide the item and add a specific class
-            $style_attr = 'border:1px solid #eee;padding:15px;text-align:center;';
-            $item_class = 'student-card';
-
-            if ( $infinite_scroll && $current_index >= $count ) {
-                $style_attr .= 'display:none;';
-                $item_class .= ' gs-infinite-hidden'; // Marker class for JS
-            }
-            ?>
-            <div class="<?php echo esc_attr( $item_class ); ?>" style="<?php echo esc_attr( $style_attr ); ?>">
-                <div class="student-image" style="margin-bottom:10px;">
-                    <?php
-                    if ( has_post_thumbnail() ) {
-                        the_post_thumbnail( 'medium', array( 'style' => 'max-width:100%;height:auto;' ) );
-                    }
+    <div class="students-shortcode-wrapper" data-list-id="<?php echo esc_attr( $uid ); ?>" data-offset="<?php echo esc_attr( $batch_size ); ?>" data-total="<?php echo esc_attr( $total_count ); ?>" data-batch-size="<?php echo esc_attr( $batch_size ); ?>">
+        <div class="students-shortcode-list" id="<?php echo esc_attr( $uid ); ?>_list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:20px;">
+            <?php
+            if ( $query->have_posts() ) :
+                while ( $query->have_posts() ) :
+                    $query->the_post();
+                    $class = get_post_meta( get_the_ID(), '_student_class', true );
                     ?>
-                </div>
+                    <div class="student-card" style="border:1px solid #eee;padding:15px;text-align:center;">
+                        <div class="student-image" style="margin-bottom:10px;">
+                            <?php
+                            if ( has_post_thumbnail() ) {
+                                the_post_thumbnail( 'medium', array( 'style' => 'max-width:100%;height:auto;' ) );
+                            }
+                            ?>
+                        </div>
 
-                <h3 class="student-name" style="margin:10px 0 5px;">
-                    <?php the_title(); ?>
-                </h3>
+                        <h3 class="student-name" style="margin:10px 0 5px;">
+                            <?php the_title(); ?>
+                        </h3>
 
-                <?php if ( ! empty( $class ) ) : ?>
-                    <div class="student-class" style="font-size:14px;color:#666;">
-                        <?php echo esc_html( $class ); ?>
+                        <?php if ( ! empty( $class ) ) : ?>
+                            <div class="student-class" style="font-size:14px;color:#666;">
+                                <?php echo esc_html( $class ); ?>
+                            </div>
+                        <?php endif; ?>
                     </div>
-                <?php endif; ?>
+                    <?php
+                endwhile;
+            endif;
+            wp_reset_postdata();
+            ?>
+        </div>
+
+        <?php if ( $total_count > $batch_size && 0 === $student_id ) : ?>
+            <div class="students-load-more-wrapper" style="text-align:center;margin-top:40px;">
+                <button class="students-load-more-btn" data-list-id="<?php echo esc_attr( $uid ); ?>" style="padding:12px 24px;background:#0073aa;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:16px;">
+                    Load More
+                </button>
+                <span class="students-loading" style="display:none;margin-left:10px;">Loading...</span>
             </div>
-            <?php 
-            $current_index++;
-        endwhile; 
-        ?>
+        <?php endif; ?>
     </div>
 
-    <?php 
-    // SCENARIO 1: Standard "Show More" Button UI
-    if ( ! $infinite_scroll && 0 === $student_id && $query->post_count > $count ) : 
-        ?>
-        <div class="students-toggle-label" style="text-align:center;margin-top:40px;">
-            <label for="<?php echo esc_attr( $uid ); ?>" class="students-toggle-label" style="cursor:pointer;">
-                <span class="show-more-text">Show more</span>
-                <span class="show-less-text">Show less</span>
-            </label>
-        </div>
-    <?php endif; ?>
-
-    <?php 
-    // SCENARIO 2: Infinite Scroll Logic (JS)
-    if ( $infinite_scroll && $query->post_count > $count ) : 
-        ?>
-        <div id="<?php echo esc_attr( $uid ); ?>_sentinel" style="height: 20px; width: 100%;"></div>
-
-        <script>
-        (function() {
-            var sentinel = document.getElementById('<?php echo esc_js( $uid ); ?>_sentinel');
-            var batchSize = <?php echo intval( $count ); ?>; // How many to reveal at once
-            
-            // Intersection Observer configuration
-            var observer = new IntersectionObserver(function(entries) {
-                if(entries[0].isIntersecting === true) {
-                    
-                    // Find all currently hidden items within this specific list
-                    var list = document.getElementById('<?php echo esc_js( $uid ); ?>_list');
-                    var hiddenItems = list.querySelectorAll('.gs-infinite-hidden');
-
-                    if (hiddenItems.length > 0) {
-                        // Reveal the next batch
-                        for (var i = 0; i < batchSize; i++) {
-                            if (hiddenItems[i]) {
-                                hiddenItems[i].style.display = 'block'; // Or 'revert' depending on grid
-                                hiddenItems[i].classList.remove('gs-infinite-hidden');
-                            }
-                        }
-                    } else {
-                        // No more items to show, disconnect observer
-                        observer.disconnect();
-                        sentinel.style.display = 'none';
-                    }
-                }
-            }, { threshold: [0] });
-
-            observer.observe(sentinel);
-        })();
-        </script>
-    <?php endif; ?>
-
     <?php
-    wp_reset_postdata();
+    // Enqueue script only once
+    static $script_enqueued = false;
+    if ( ! $script_enqueued ) {
+        wp_enqueue_script( 'jquery' );
+        add_action( 'wp_footer', 'gs_students_load_more_script', 99 );
+        $script_enqueued = true;
+    }
+
     return ob_get_clean();
 }
 add_shortcode( 'students_list', 'gs_students_list_shortcode' );
+
+/**
+ * AJAX handler to load more students.
+ */
+function gs_students_load_more_ajax() {
+    check_ajax_referer( 'students_load_more_nonce', 'nonce' );
+
+    $offset     = isset( $_POST['offset'] ) ? absint( $_POST['offset'] ) : 0;
+    $batch_size = 2; // Always 2 per batch
+
+    $args = array(
+        'post_type'      => 'student',
+        'post_status'    => 'publish',
+        'posts_per_page' => $batch_size,
+        'offset'         => $offset,
+        'orderby'        => 'date',
+        'order'          => 'DESC',
+    );
+
+    $query = new WP_Query( $args );
+
+    $html = '';
+    if ( $query->have_posts() ) {
+        while ( $query->have_posts() ) {
+            $query->the_post();
+            $class = get_post_meta( get_the_ID(), '_student_class', true );
+
+            $html .= '<div class="student-card" style="border:1px solid #eee;padding:15px;text-align:center;">';
+            $html .= '<div class="student-image" style="margin-bottom:10px;">';
+            if ( has_post_thumbnail() ) {
+                $html .= get_the_post_thumbnail( get_the_ID(), 'medium', array( 'style' => 'max-width:100%;height:auto;' ) );
+            }
+            $html .= '</div>';
+            $html .= '<h3 class="student-name" style="margin:10px 0 5px;">' . esc_html( get_the_title() ) . '</h3>';
+            if ( ! empty( $class ) ) {
+                $html .= '<div class="student-class" style="font-size:14px;color:#666;">' . esc_html( $class ) . '</div>';
+            }
+            $html .= '</div>';
+        }
+        wp_reset_postdata();
+    }
+
+    $has_more = ( $offset + $batch_size ) < $query->found_posts;
+
+    wp_send_json_success(
+        array(
+            'html'     => $html,
+            'has_more' => $has_more,
+            'offset'   => $offset + $batch_size,
+        )
+    );
+}
+add_action( 'wp_ajax_students_load_more', 'gs_students_load_more_ajax' );
+add_action( 'wp_ajax_nopriv_students_load_more', 'gs_students_load_more_ajax' );
+
+/**
+ * Enqueue JavaScript for Load More functionality.
+ */
+function gs_students_load_more_script() {
+    ?>
+    <script type="text/javascript">
+    (function($) {
+        $(document).ready(function() {
+            $(document).on('click', '.students-load-more-btn', function(e) {
+                e.preventDefault();
+                
+                var $button = $(this);
+                var $wrapper = $button.closest('.students-shortcode-wrapper');
+                var $list = $wrapper.find('.students-shortcode-list');
+                var $loading = $wrapper.find('.students-loading');
+                var offset = parseInt($wrapper.data('offset'), 10);
+                var total = parseInt($wrapper.data('total'), 10);
+                var batchSize = parseInt($wrapper.data('batch-size'), 10);
+
+                $button.prop('disabled', true);
+                $loading.show();
+
+                $.ajax({
+                    url: '<?php echo esc_url( admin_url( 'admin-ajax.php' ) ); ?>',
+                    type: 'POST',
+                    data: {
+                        action: 'students_load_more',
+                        nonce: '<?php echo wp_create_nonce( 'students_load_more_nonce' ); ?>',
+                        offset: offset
+                    },
+                    success: function(response) {
+                        if (response.success && response.data.html) {
+                            $list.append(response.data.html);
+                            $wrapper.data('offset', response.data.offset);
+
+                            if (!response.data.has_more) {
+                                $button.hide();
+                            } else {
+                                $button.prop('disabled', false);
+                            }
+                        } else {
+                            alert('Failed to load more students.');
+                            $button.prop('disabled', false);
+                        }
+                        $loading.hide();
+                    },
+                    error: function() {
+                        alert('An error occurred. Please try again.');
+                        $button.prop('disabled', false);
+                        $loading.hide();
+                    }
+                });
+            });
+        });
+    })(jQuery);
+    </script>
+    <?php
+}
 
 
 //=========== Show Header/Footer ==============
